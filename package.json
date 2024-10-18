@@ -8,12 +8,18 @@
   },
   "keywords": [],
   "author": "Roland Krieger (Etornam)",
+  "contributors": [],
   "license": "GPL-3.0-only",
   "dependencies": {
+    "@infisical/sdk": "^3.0.3",
     "debug": "^4.3.7",
     "dotenv": "^16.4.5",
     "express": "^4.21.1",
-    "passport": "^0.7.0"
+    "i18next": "^23.16.0",
+    "mongoose": "^8.7.2",
+    "mongoose-paginate-v2": "^1.8.5",
+    "passport": "^0.7.0",
+    "shared-lib": "github:Election-Audits/shared-lib"
   },
   "devDependencies": {
     "@types/express": "^5.0.0",
