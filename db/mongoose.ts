@@ -42,6 +42,8 @@ async function setup() {
     isDbConnected = true; // indicate succesful db connection
 }
 
+setup();
+
 
 let isDbConnected: boolean = false;
 /**
