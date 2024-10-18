@@ -1,0 +1,29 @@
+{
+    "compilerOptions": {
+      /* Visit https://aka.ms/tsconfig to read more about this file */
+
+      /* Language and Environment */
+      "target": "es2023",                                  /* Set the JavaScript language version for emitted JavaScript and include compatible library declarations. */
+
+      /* Modules */
+      "module": "node16",                                /* commonjs Specify what module code is generated. */
+
+      /* JavaScript Support */
+
+      /* Emit */
+      "outDir": "dist",
+
+      /* Interop Constraints */
+      "esModuleInterop": true,
+      "forceConsistentCasingInFileNames": true,            /* Ensure that casing is correct in imports. */
+  
+      /* Type Checking */
+      "strict": true,
+
+      /* Completeness */
+      "skipLibCheck": true,                                 /* Skip type checking all .d.ts files. */
+
+      "resolveJsonModule": true
+    }
+}
+  
