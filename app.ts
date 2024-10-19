@@ -9,6 +9,10 @@ debug.log = console.log.bind(console);
 import "./auth"; // passport setup
 import passport from "passport";
 
+// import routers
+import loginRouter from "./routes/login";
+//import agentRouter from "./routes/agents";
+
 
 
 const app = express();
@@ -28,7 +32,8 @@ app.get('/ping', (req,res,next)=>{
 app.use(passport.initialize()); // initialize passport
 
 // mount routers
-
+app.use("/", loginRouter);
+//app.use("/", agentRouter);
 
 
 

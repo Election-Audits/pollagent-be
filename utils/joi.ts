@@ -14,10 +14,16 @@ const phone = Joi.number();
 // schema for signup endpoint
 export const signupSchema = Joi.object({
     email,
-    password: password.required(),
     phone,
+    password: password.required()
 });
 
 
+// schema for signupConfirm endpoint
+export const signupConfirmSchema = Joi.object({
+    email,
+    phone,
+    code: Joi.string().alphanum().max(20).required()
+});
 
 

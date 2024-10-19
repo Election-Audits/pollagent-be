@@ -15,7 +15,7 @@ async function setup() {
         if (db == 'eaudit') continue;
         // create models
         electoralLevelsModel = databaseConns[db].model("ElectoralLevels", electoralLevelsSchema, "ElectoralLevels");
-
+        supervisorModel = databaseConns[db].model("Supervisors", supervisorSchema, "Supervisors");
     }
 }
 
@@ -50,3 +50,16 @@ export let electoralLevelsModel = mongoose.model("ElectoralLevels", electoralLev
 // --------------------
 
 
+// -------------------- Supervisors Schema
+const supervisorSchema = new Schema({
+    agentId: SchemaTypes.String,
+    subAgents: {
+
+    }
+});
+
+supervisorSchema.index({agentId: 1}, {unique: true});
+
+// init model. Will be updated upon db connections in 'setup'
+export let supervisorModel = mongoose.model("Supervisors", supervisorSchema, "Supervisors");
+// --------------------

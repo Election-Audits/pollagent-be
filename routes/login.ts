@@ -10,6 +10,7 @@ import passport from "passport";
 import i18next from "i18next";
 import cookieParser from "cookie-parser";
 import { pollAgentSession } from "../utils/session";
+import { signup, signupConfirm } from "../controllers/login";
 
 
 
@@ -42,8 +43,34 @@ Signup. For signup, there has to either be an existing email or phone record in 
 router.post('/signup',
 (req,res,next)=>{
     debug('received request to /signup...');
-
+    signup(req,res,next)
+    .then(()=>{
+        res.status(200).end();
+    })
+    .catch((err)=> endpointError(err,req,res));
 });
+
+
+/*
+Signup confirm
+*/
+router.put('/signup/confirm',
+(req,res,next)=> pollAgentSession(req,res,next),
+(req,res,next)=>{
+    debug('received request to /signup/confirm');
+    signupConfirm(req,res,next)
+    .then((data)=>{
+        // also send data to be used to prepopulate next screen for filling profile details
+        res.status(200).send(data);
+    })
+    .catch((err)=> endpointError(err,req,res));
+});
+
+
+
+
+
+
 
 
 
