@@ -49,6 +49,9 @@ const pollAgentSchema = new Schema({
     electoralLevel: SchemaTypes.String,
     electoralAreaId: SchemaTypes.String,
     electoralAreaName: SchemaTypes.String,
+    //
+    partyId: SchemaTypes.String,
+    country: SchemaTypes.String
 });
 
 
@@ -74,6 +77,9 @@ interface PollAgentData {
     electoralLevel: string,
     electoralAreaId: string,
     electoralAreaName: string,
+    //
+    partyId: string,
+    country: string
 };
 
 

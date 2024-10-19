@@ -27,3 +27,17 @@ export const signupConfirmSchema = Joi.object({
 });
 
 
+// schema for login endpoint
+export const loginSchema = Joi.object({
+    email,
+    phone,
+    password: password.required()
+});
+
+
+// schema for loginConfirm endpoint
+export const loginConfirmSchema = Joi.object({
+    email,
+    phone,
+    code: Joi.string().alphanum().max(20).required()
+});

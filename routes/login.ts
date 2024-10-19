@@ -10,7 +10,7 @@ import passport from "passport";
 import i18next from "i18next";
 import cookieParser from "cookie-parser";
 import { pollAgentSession } from "../utils/session";
-import { signup, signupConfirm } from "../controllers/login";
+import { signup, signupConfirm, login, loginConfirm } from "../controllers/login";
 
 
 
@@ -67,10 +67,40 @@ router.put('/signup/confirm',
 });
 
 
+/*
+Login
+*/
+router.put('/login',
+(req,res,next)=>{
+    debug('received request to /login...');
+    login(req,res,next)
+    .then(()=>{
+        return res.status(200).end();
+    })
+    .catch((err)=> endpointError(err,req,res));
+});
+
+
+/*
+Login confirm
+*/
+router.put('/login/confirm',
+(req,res,next)=> pollAgentSession(req,res,next),
+(req,res,next)=>{
+    debug('received request to /login/confirm...');
+    loginConfirm(req,res,next)
+    .then((data)=>{
+        return res.status(200).send(data);
+    })
+    .catch((err)=> endpointError(err,req,res));
+});
 
 
 
+// TODO: signup details
 
+
+// TODO: resend code
 
 
 
