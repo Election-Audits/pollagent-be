@@ -12,19 +12,23 @@
   "license": "GPL-3.0-only",
   "dependencies": {
     "@infisical/sdk": "^3.0.3",
+    "bcrypt": "^5.1.1",
     "connect-mongo": "^5.1.0",
     "cookie-parser": "^1.4.7",
+    "crypto-random-string": "^5.0.0",
     "debug": "^4.3.7",
     "dotenv": "^16.4.5",
     "express": "^4.21.1",
     "express-session": "^1.18.1",
     "i18next": "^23.16.0",
+    "joi": "^17.13.3",
     "mongoose": "^8.7.2",
     "mongoose-paginate-v2": "^1.8.5",
     "passport": "^0.7.0",
     "shared-lib": "github:Election-Audits/shared-lib"
   },
   "devDependencies": {
+    "@types/bcrypt": "^5.0.2",
     "@types/cookie-parser": "^1.4.7",
     "@types/express": "^5.0.0",
     "@types/express-session": "^1.18.0",
