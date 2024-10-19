@@ -72,6 +72,9 @@ export async function signup(req: Request, res: Response, next: NextFunction) {
     let filterArray = [];
     if (email) filterArray.push({email});
     if (phone) filterArray.push({phone});
+    if (!email && !phone) { // don't allow empty query
+        return Promise.reject({errMsg: i18next.t("request_body_error")});
+    }
     let filter = { $or: filterArray };
     let record = await pollAgentModel.findOne(filter);
     debug('record: ', JSON.stringify(record));
@@ -189,6 +192,9 @@ export async function signupConfirm(req: Request, res: Response, next: NextFunct
     let filterArray = [];
     if (email) filterArray.push({email});
     if (phone) filterArray.push({phone});
+    if (!email && !phone) {
+        return Promise.reject({errMsg: i18next.t("request_body_error")});
+    }
     let filter = { $or: filterArray };
     let record = await pollAgentModel.findOne(filter);
     debug('record: ', JSON.stringify(record));
@@ -237,6 +243,9 @@ export async function login(req: Request, res: Response, next: NextFunction) {
     let filterArray = [];
     if (email) filterArray.push({email});
     if (phone) filterArray.push({phone});
+    if (!email && !phone) {
+        return Promise.reject({errMsg: i18next.t("request_body_error")});
+    }
     let filter = { $or: filterArray };
     let record = await pollAgentModel.findOne(filter);
     debug('record: ', JSON.stringify(record));
@@ -339,6 +348,9 @@ export async function loginConfirm(req: Request, res: Response, next: NextFuncti
     let filterArray = [];
     if (email) filterArray.push({email});
     if (phone) filterArray.push({phone});
+    if (!email && !phone) {
+        return Promise.reject({errMsg: i18next.t("request_body_error")});
+    }
     let filter = { $or: filterArray };
     let record = await pollAgentModel.findOne(filter);
     // Ensure account exists
@@ -394,8 +406,12 @@ export async function passwordReset(req: Request, res: Response, next: NextFunct
     let filterArray = [];
     if (email) filterArray.push({email});
     if (phone) filterArray.push({phone});
+    if (!email && !phone) {
+        return Promise.reject({errMsg: i18next.t("request_body_error")});
+    }
     let filter = { $or: filterArray };
     let record = await pollAgentModel.findOne(filter);
+    debug('record: ', JSON.stringify(record));
     // ensure account exists
     if (!record?.emailConfirmed && !record?.phoneConfirmed) {
         return Promise.reject({errMsg: i18next.t("account_not_exist")});
@@ -405,6 +421,7 @@ export async function passwordReset(req: Request, res: Response, next: NextFunct
     let code = (record.supervisorId) ? randomString({length: 4, type: 'numeric'}) : randomString({length: 6});
     let otpCodes_0 = record.otpCodes || [];
     let otpCodes = [...otpCodes_0, {code, createdAtms: Date.now()}];
+    debug(`code: ${code}`);
     // remove otp codes that are too old
     otpCodes = otpCodes.filter((x: any)=>{
         let codeAge = Date.now() - x.createdAtms; //debug(`code: ${x.code}, codeAge: ${codeAge/(60*1000)} minutes`);
@@ -449,6 +466,9 @@ export async function passwordResetConfirm(req: Request, res: Response, next: Ne
     let filterArray = [];
     if (email) filterArray.push({email});
     if (phone) filterArray.push({phone});
+    if (!email && !phone) {
+        return Promise.reject({errMsg: i18next.t("request_body_error")});
+    }
     let filter = { $or: filterArray };
     let record = await pollAgentModel.findOne(filter);
     // ensure account exists
@@ -475,6 +495,7 @@ export async function passwordResetConfirm(req: Request, res: Response, next: Ne
     let password = await bcrypt.hash(body.password, 12);
     // update record
     await pollAgentModel.updateOne(filter, {$set: {password} });
+    // TODO: destroy all sessions
 }
 
 
