@@ -254,12 +254,11 @@ export async function login(req: Request, res: Response, next: NextFunction) {
     let otpCodes = [...otpCodes_0, {code, createdAtms: Date.now()}];
     // remove otp codes that are too old
     otpCodes = otpCodes.filter((x: any)=>{
-        let codeAge = Date.now() - x.createdAtms;
+        let codeAge = Date.now() - x.createdAtms; //debug(`code: ${x.code}, codeAge: ${codeAge/(60*1000)} minutes`);
         return codeAge < 2*verifyWindow;
     });
     // update otp codes
-    let updateRet = await pollAgentModel.updateOne(filter, {$set: otpCodes});
-    debug('updateRet: ', updateRet);
+    let updateRet = await pollAgentModel.updateOne(filter, {$set: {otpCodes}});
     debug(`code: ${code}`);
     // if supervisor, will send OTP by email, otherwise for subAgent, the OTP would be send to the supervisor's app to
     // be forwarded to the subAgent by text
@@ -363,10 +362,13 @@ export async function loginConfirm(req: Request, res: Response, next: NextFuncti
     // set cookie for authenticating future requests
     if (email) req.session.email = email;
     if (phone) req.session.phone = phone;
-    // data to send to client
-    let retData: {[key: string]: any} = Object.assign({}, record);
-    retData.password = undefined;
-    retData.otpCodes = undefined;
-    return record;
+    // data to send to client : {[key: string]: any}
+    let retData = {
+        email,
+        phone,
+        surname: record.surname,
+        otherNames: record.otherNames
+    };
+    return retData;
 }
 
