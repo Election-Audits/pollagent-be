@@ -10,7 +10,7 @@ import passport from "passport";
 import i18next from "i18next";
 import cookieParser from "cookie-parser";
 import { pollAgentSession } from "../utils/session";
-import { signup, signupConfirm, login, loginConfirm } from "../controllers/login";
+import { signup, signupConfirm, login, loginConfirm, passwordReset, passwordResetConfirm } from "../controllers/login";
 
 
 
@@ -103,4 +103,28 @@ router.put('/login/confirm',
 // TODO: resend code
 
 
+/*
+Password reset. TODO: rate limit?
+*/
+router.put('/password/reset',
+(req,res,next)=>{
+    debug('received request to /password/reset...');
+    passwordReset(req,res,next)
+    .then(()=>{
+        return res.status(200).end();
+    })
+    .catch((err)=> endpointError(err,req,res));
+});
+
+
+
+router.put('/password/reset/confirm',
+(req,res,next)=>{
+    debug('received request to /password/reset/confirm...');
+    passwordResetConfirm(req,res,next)
+    .then(()=>{
+        return res.status(200).end();
+    })
+    .catch((err)=> endpointError(err,req,res));
+});
 

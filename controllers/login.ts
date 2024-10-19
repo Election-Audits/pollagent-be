@@ -10,7 +10,8 @@ import i18next from "i18next";
 import * as bcrypt from "bcrypt";
 import { secrets ,checkSecretsReturned } from "../utils/infisical";
 import { pollAgentCookieMaxAge } from "../utils/misc";
-import { signupSchema, signupConfirmSchema, loginSchema, loginConfirmSchema } from "../utils/joi";
+import { signupSchema, signupConfirmSchema, loginSchema, loginConfirmSchema, passwordResetSchema, 
+passwordResetConfirmSchema } from "../utils/joi";
 import { Request, Response, NextFunction } from "express";
 
 // ES Module import
@@ -258,12 +259,12 @@ export async function login(req: Request, res: Response, next: NextFunction) {
         return codeAge < 2*verifyWindow;
     });
     // update otp codes
-    let updateRet = await pollAgentModel.updateOne(filter, {$set: {otpCodes}});
+    await pollAgentModel.updateOne(filter, {$set: {otpCodes}});
     debug(`code: ${code}`);
     // if supervisor, will send OTP by email, otherwise for subAgent, the OTP would be send to the supervisor's app to
     // be forwarded to the subAgent by text
     if (record.supervisorId) { // a subAgent
-        await loginSubAgent(record, code);
+        await otpSubAgent(record, code);
     } else { // a supervisor/ regional/ country coordinator
         let emailInput = {
             recipient: email,
@@ -271,7 +272,7 @@ export async function login(req: Request, res: Response, next: NextFunction) {
             text: i18next.t("otp_message") + code, // plain text body
         };
         //let agent = {id: record._id};
-        await loginSupervisor(emailInput);
+        await otpSupervisor(emailInput);
     }
 }
 
@@ -281,7 +282,7 @@ export async function login(req: Request, res: Response, next: NextFunction) {
  * @param myData {id}
  * @param code 
  */
-async function loginSubAgent(myData: {[key: string]: any}, code: string) {
+async function otpSubAgent(myData: {[key: string]: any}, code: string) {
     // also write the code in the supervisors table so can be accessed
     let filter = {agentId: myData.supervisorId};
     let field = `subAgents.${myData._id}`;
@@ -297,7 +298,7 @@ async function loginSubAgent(myData: {[key: string]: any}, code: string) {
  * @param emailInput
  * @returns 
  */
-async function loginSupervisor(emailInput: EmailInput) {
+async function otpSupervisor(emailInput: EmailInput) {
     // only send email when in cloud build
     if (BUILD == BUILD_TYPES.local) return;
     // send the OTP by email to the supervisor
@@ -335,7 +336,6 @@ export async function loginConfirm(req: Request, res: Response, next: NextFuncti
     // first get record from the db
     let { email, phone } = body;
     // highest levels of supervisors (country, region) use email, while others use phone
-    //let filterArray = (email && phone) ? [{email}, {phone}] : (email) ? [{email}] : [{phone}];
     let filterArray = [];
     if (email) filterArray.push({email});
     if (phone) filterArray.push({phone});
@@ -371,4 +371,112 @@ export async function loginConfirm(req: Request, res: Response, next: NextFuncti
     };
     return retData;
 }
+
+
+/**
+ * Start process of resetting password
+ * @param req 
+ * @param res 
+ * @param next 
+ */
+export async function passwordReset(req: Request, res: Response, next: NextFunction) {
+    let body = req.body;
+    // validate input with Joi
+    let { error } = await passwordResetSchema.validateAsync(body);
+    if (error) {
+        debug('schema error: ', error);
+        return Promise.reject({errMsg: i18next.t("request_body_error")});
+    }
+
+    // Ensure account exists
+    let { email, phone } = body;
+    // highest levels of supervisors (country, region) use email, while others use phone
+    let filterArray = [];
+    if (email) filterArray.push({email});
+    if (phone) filterArray.push({phone});
+    let filter = { $or: filterArray };
+    let record = await pollAgentModel.findOne(filter);
+    // ensure account exists
+    if (!record?.emailConfirmed && !record?.phoneConfirmed) {
+        return Promise.reject({errMsg: i18next.t("account_not_exist")});
+    }
+
+    // create an OTP code and save
+    let code = (record.supervisorId) ? randomString({length: 4, type: 'numeric'}) : randomString({length: 6});
+    let otpCodes_0 = record.otpCodes || [];
+    let otpCodes = [...otpCodes_0, {code, createdAtms: Date.now()}];
+    // remove otp codes that are too old
+    otpCodes = otpCodes.filter((x: any)=>{
+        let codeAge = Date.now() - x.createdAtms; //debug(`code: ${x.code}, codeAge: ${codeAge/(60*1000)} minutes`);
+        return codeAge < 2*verifyWindow;
+    });
+    // update otp codes
+    await pollAgentModel.updateOne(filter, {$set: {otpCodes}});
+
+    // if supervisor, will send OTP by email, otherwise for subAgent, the OTP would be send to the supervisor's app to
+    // be forwarded to the subAgent by text
+    if (record.supervisorId) { // a subAgent
+        await otpSubAgent(record, code);
+    } else { // a supervisor/ regional/ country coordinator
+        let emailInput = {
+            recipient: email,
+            subject: 'Election Audits',
+            text: i18next.t("otp_message") + code, // plain text body
+        };
+        await otpSupervisor(emailInput);
+    }
+}
+
+
+/**
+ * 
+ * @param req 
+ * @param res 
+ * @param next 
+ */
+export async function passwordResetConfirm(req: Request, res: Response, next: NextFunction) {
+    let body = req.body;
+    // validate input with Joi
+    let { error } = await passwordResetConfirmSchema.validateAsync(body);
+    if (error) {
+        debug('schema error: ', error);
+        return Promise.reject({errMsg: i18next.t("request_body_error")});
+    }
+
+    // Ensure account exists
+    let { email, phone } = body;
+    // highest levels of supervisors (country, region) use email, while others use phone
+    let filterArray = [];
+    if (email) filterArray.push({email});
+    if (phone) filterArray.push({phone});
+    let filter = { $or: filterArray };
+    let record = await pollAgentModel.findOne(filter);
+    // ensure account exists
+    if (!record?.emailConfirmed && !record?.phoneConfirmed) {
+        return Promise.reject({errMsg: i18next.t("account_not_exist")});
+    }
+
+    // Check that the OTP is correct
+    // search otpCodes array for a code that matches
+    let dbCodes = record?.otpCodes || []; // {code: 0}
+    let ind = dbCodes.findIndex((codeObj)=> codeObj.code == body.code);
+    if (ind == -1) {
+        return Promise.reject({errMsg: i18next.t("wrong_code")});
+    }
+    // Ensure that the code has not expired
+    let codeCreatedAt = record?.otpCodes[ind].createdAtms || 0;
+    let deltaT = Date.now() - codeCreatedAt;
+    if (deltaT > verifyWindow) {
+        debug(`code has expired: deltaT is ${deltaT/1000} seconds`);
+        return Promise.reject({errMsg: i18next.t("expired_code")});
+    }
+
+    // hash password
+    let password = await bcrypt.hash(body.password, 12);
+    // update record
+    await pollAgentModel.updateOne(filter, {$set: {password} });
+}
+
+
+
 
