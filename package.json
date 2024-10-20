@@ -25,6 +25,7 @@
     "mongoose": "^8.7.2",
     "mongoose-paginate-v2": "^1.8.5",
     "passport": "^0.7.0",
+    "passport-cookie": "^1.0.9",
     "shared-lib": "github:Election-Audits/shared-lib"
   },
   "devDependencies": {
