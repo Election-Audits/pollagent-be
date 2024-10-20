@@ -11,7 +11,7 @@ import * as bcrypt from "bcrypt";
 import { secrets ,checkSecretsReturned } from "../utils/infisical";
 import { pollAgentCookieMaxAge } from "../utils/misc";
 import { signupSchema, signupConfirmSchema, loginSchema, loginConfirmSchema, passwordResetSchema, 
-passwordResetConfirmSchema } from "../utils/joi";
+passwordResetConfirmSchema, resendCodeSchema } from "../utils/joi";
 import { Request, Response, NextFunction } from "express";
 
 // ES Module import
@@ -382,6 +382,77 @@ export async function loginConfirm(req: Request, res: Response, next: NextFuncti
         otherNames: record.otherNames
     };
     return retData;
+}
+
+
+/**
+ * Resend code
+ * @param req 
+ * @param res 
+ * @param next 
+ */
+export async function resendCode(req: Request, res: Response, next: NextFunction) {
+    let body = req.body;
+    // validate input
+    let { error } = await resendCodeSchema.validateAsync(body);
+    if (error) {
+        debug('schema error: ', error);
+        return Promise.reject({errMsg: i18next.t("request_body_error")});
+    }
+
+    // first get record from the db
+    let { email, phone } = body;
+    // highest levels of supervisors (country, region) use email, while others use phone
+    let filterArray = [];
+    if (email) filterArray.push({email});
+    if (phone) filterArray.push({phone});
+    if (!email && !phone) {
+        return Promise.reject({errMsg: i18next.t("request_body_error")});
+    }
+    let filter = { $or: filterArray };
+    let record = await pollAgentModel.findOne(filter);
+
+    // Ensure account exists
+    if (!record) {
+        return Promise.reject({errMsg: i18next.t("account_not_exist")});
+    }
+
+    // Ensure that user was in the process of login/sign up (there exists a recent code)
+    let otpCodes_0 = record.otpCodes || [];
+    if (!otpCodes_0) return Promise.reject("not in the process of logging in");
+    let recentOtpObjects = otpCodes_0.filter((x)=>{
+        let codeAge = Date.now() - x.createdAtms;
+        return codeAge < verifyWindow;
+    });
+    if (recentOtpObjects.length == 0) {
+        return Promise.reject("not in the process of logging in");
+    }
+
+    // Create and save OTP
+    let code = (record.supervisorId) ? randomString({length: 4, type: 'numeric'}) : randomString({length: 6});
+    //
+    let otpCodes = [...otpCodes_0, {code, createdAtms: Date.now()}];
+    // remove otp codes that are too old
+    otpCodes = otpCodes.filter((x: any)=>{
+        let codeAge = Date.now() - x.createdAtms; //debug(`code: ${x.code}, codeAge: ${codeAge/(60*1000)} minutes`);
+        return codeAge < 2*verifyWindow;
+    });
+    // update otp codes
+    await pollAgentModel.updateOne(filter, {$set: {otpCodes}});
+    debug(`code: ${code}`);
+
+    // Send OTP by email if supervisor, or to supervisor app if a subAgent
+    if (record.supervisorId) { // a subAgent
+        await otpSubAgent(record, code);
+    } else { // a supervisor/ regional/ country coordinator
+        let emailInput = {
+            recipient: email,
+            subject: 'Election Audits',
+            text: i18next.t("otp_message") + code, // plain text body
+        };
+        //let agent = {id: record._id};
+        await otpSupervisor(emailInput);
+    }
 }
 
 

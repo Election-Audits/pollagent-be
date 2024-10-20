@@ -45,6 +45,11 @@ export const loginConfirmSchema = Joi.object({
 
 
 
+// resend code schema
+export const resendCodeSchema = Joi.object({
+    email,
+    phone
+});
 
 // schema for password reset
 export const passwordResetSchema = Joi.object({

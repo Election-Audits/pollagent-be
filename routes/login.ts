@@ -10,7 +10,7 @@ import passport from "passport";
 import i18next from "i18next";
 import cookieParser from "cookie-parser";
 import { pollAgentSession } from "../utils/session";
-import { signup, signupConfirm, login, loginConfirm, passwordReset, passwordResetConfirm } from "../controllers/login";
+import { signup, signupConfirm, login, loginConfirm, passwordReset, passwordResetConfirm, resendCode } from "../controllers/login";
 
 
 
@@ -100,7 +100,20 @@ router.put('/login/confirm',
 // TODO: signup details
 
 
-// TODO: resend code
+
+/*
+Resend code
+*/
+router.put('/code',
+(req,res,next)=> pollAgentSession(req,res,next),
+(req,res,next)=>{
+    debug('received request to /code...');
+    resendCode(req,res,next)
+    .then(()=>{
+        return res.status(200).end();
+    })
+    .catch((err)=> endpointError(err,req,res));
+});
 
 
 /*

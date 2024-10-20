@@ -1,6 +1,6 @@
 import * as path from "path";
 // NB: can set DOTENV_CONFIG_PATH env, otherwise defaults to ./envs/.env
-process.env.DOTENV_CONFIG_PATH ||= path.join(__dirname, "envs", ".env");
+process.env.DOTENV_CONFIG_PATH ||= path.join(__dirname, "..", "envs", ".env");
 import "dotenv/config";
 
 import express from "express";
