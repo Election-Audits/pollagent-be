@@ -43,8 +43,6 @@ export const loginConfirmSchema = Joi.object({
     code: code.required()
 });
 
-
-
 // resend code schema
 export const resendCodeSchema = Joi.object({
     email,
@@ -65,3 +63,13 @@ export const passwordResetConfirmSchema = Joi.object({
     password: password.required(),
     code: code.required()
 });
+
+
+// update profile schema
+export const updateProfileSchema = Joi.object({
+    surname: Joi.string().max(50),
+    otherNames: Joi.string().max(50)
+});
+
+
+

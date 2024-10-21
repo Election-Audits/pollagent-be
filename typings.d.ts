@@ -10,3 +10,13 @@ interface EmailInput {
     subject: string,
     text: string
 }
+
+
+// Add a declaration that will be merged with Express.Request
+declare namespace Express {
+
+    interface User { // add email to Request.User
+        email: string,
+        phone: string
+    }
+}

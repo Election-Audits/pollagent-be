@@ -24,7 +24,7 @@ new CookieStrategy({
 },
 async (req: express.Request, token: string | undefined, cb: Function)=>{
     try {
-        debug('cookie strategy cb. session: ', req.session);
+        debug('cookie strategy cb. email: ', req.session.email);
         let email = req.session.email;
         if (!email) {
             return cb(null, false, 'unauthorized. no cookie or email');
@@ -53,7 +53,7 @@ new CookieStrategy({
 },
 async (req: express.Request, token: string | undefined, cb: Function)=>{
     try {
-        debug('cookie strategy cb. session: ', req.session);
+        debug('cookie strategy cb. phone: ', req.session.phone);
         let phone = req.session.phone;
         if (!phone) {
             return cb(null, false, 'unauthorized. no cookie or phone');
@@ -81,7 +81,7 @@ new CookieStrategy({
 },
 async (req: express.Request, token: string | undefined, cb: Function)=>{
     try {
-        debug('cookie strategy cb. session: ', req.session);
+        debug(`cookie strategy cb. email: ${req.session.email}, phone: ${req.session.phone}`);
         let phone = req.session.phone;
         let email = req.session.email;
         // access poll Agent record by email or phone if defined

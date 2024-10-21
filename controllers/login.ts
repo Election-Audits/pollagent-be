@@ -11,8 +11,9 @@ import * as bcrypt from "bcrypt";
 import { secrets ,checkSecretsReturned } from "../utils/infisical";
 import { pollAgentCookieMaxAge } from "../utils/misc";
 import { signupSchema, signupConfirmSchema, loginSchema, loginConfirmSchema, passwordResetSchema, 
-passwordResetConfirmSchema, resendCodeSchema } from "../utils/joi";
+passwordResetConfirmSchema, resendCodeSchema, updateProfileSchema } from "../utils/joi";
 import { Request, Response, NextFunction } from "express";
+import * as mongoose from "mongoose";
 
 // ES Module import
 let randomString : Function;
@@ -570,5 +571,46 @@ export async function passwordResetConfirm(req: Request, res: Response, next: Ne
 }
 
 
+/**
+ * Update profile
+ * @param req 
+ * @param res 
+ * @param next 
+ */
+export async function updateProfile(req: Request, res: Response, next: NextFunction) {
+    let body = req.body;
+    // validate input
+    let { error } = await updateProfileSchema.validateAsync(body);
+    if (error) {
+        debug('schema error: ', error);
+        return Promise.reject({errMsg: i18next.t("request_body_error")});
+    }
+    
+    // ensure body not empty. Actually updating some field
+    if (Object.keys(body).length == 0) {
+        return Promise.reject({errMsg: i18next.t("request_body_error")});
+    }
 
+    // update record
+    let email = req.user?.email; // passport middleware set req.user after auth
+    let phone = req.user?.phone;
+    let filter: {[key: string]: any} = {};
+    if (email) filter.email = email;
+    if (phone) filter.phone = phone;
+    // NB: auth middleware ensures both email and phone not null
+    let update = {$set: body};
+    let options: mongoose.QueryOptions<any> = {
+        returnDocument: 'after',
+        projection: {password: 0, otpCodes: 0}
+    };
+    let pollAgent = await pollAgentModel.findOneAndUpdate(filter, update, options);
+    debug('pollAgent ret: ', JSON.stringify(pollAgent));
+    let retData = {
+        email: pollAgent?.email,
+        phone: pollAgent?.phone,
+        surname: pollAgent?.surname,
+        otherNames: pollAgent?.otherNames
+    };
+    return retData;
+}
 
