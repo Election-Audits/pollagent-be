@@ -140,7 +140,7 @@ export async function signup(req: Request, res: Response, next: NextFunction) {
 async function signupSubAgent(myData: {[key: string]: any}, code: string) {
     // also write the code in the supervisors table so can be accessed
     let filter = {agentId: myData.supervisorId};
-    let field = `subAgents.${myData._id}`;
+    let field = `subAgents.${myData.phone}`;
     let update = {[field]: code};
     await supervisorModel.updateOne(filter, {$set: update});
     // TODO: send a push notification to the supervisor that a subAgent is attempting to signup
@@ -309,7 +309,7 @@ export async function login(req: Request, res: Response, next: NextFunction) {
 async function otpSubAgent(myData: {[key: string]: any}, code: string) {
     // also write the code in the supervisors table so can be accessed
     let filter = {agentId: myData.supervisorId};
-    let field = `subAgents.${myData._id}`;
+    let field = `subAgents.${myData.phone}`;
     let update = {[field]: code};
     await supervisorModel.updateOne(filter, {$set: update});
     // TODO: send a push notification to the supervisor that a subAgent is attempting to signup

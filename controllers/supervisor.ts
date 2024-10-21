@@ -50,12 +50,8 @@ export async function postSubAgents(req: Request, res: Response, next: NextFunct
     }
 
     // update records in PollAgents collection to allow signup/login of subAgent
-    // fill out agentsArray for writing to PollAgents collection
-    // let agentsArray = [];
-    // let phoneArray = [];
     let dbFuncs = []; // mongoose functions
     for (let subAgent of body.people) {
-        //phoneArray.push(subAgent.phone);
         // agent update object
         let agentUpdate : {[key: string]: any} = {
             supervisorId: req.user?._id,
@@ -63,19 +59,37 @@ export async function postSubAgents(req: Request, res: Response, next: NextFunct
         };
         if (subAgent.surname) agentUpdate.surname = subAgent.surname;
         if (subAgent.otherNames) agentUpdate.otherNames = subAgent.otherNames;
-        //agentsArray.push(agentUpdate);
-        //let filter = {phone: subAgent.phone};
-        //dbFuncs.push( pollAgentModel.updateOne(filter, {$set: subAgent}) )
+        //
         let fieldsUnique = {phone: subAgent.phone};
         let fieldsUpdate = agentUpdate;
         dbFuncs.push( tryInsertUpdate(pollAgentModel, fieldsUnique, fieldsUpdate) );
     }
     //
     await Promise.all(dbFuncs);
-
-    //write to PollAgents
-    //let updateFilter = {phone: {$in: phoneArray}};
-    //await pollAgentModel.updateMany(updateFilter, )
 }
+
+
+/**
+ * Get a supervisor's sub agents
+ * @param req 
+ * @param res 
+ * @param next 
+ */
+export async function getSubAgents(req: Request, res: Response, next: NextFunction) {
+    // no inputs
+    let user = req.user;
+    // query Supervisors collection with agentId == _id
+    let supervisorRec = await supervisorModel.findOne({agentId: user?._id});
+    let subAgentsObj = supervisorRec?.subAgents;
+    let subPhones = Object.keys(subAgentsObj);
+    
+    // get personal data of subAgents
+    let filter = {phone: {$in: subPhones}};
+    let projection = {surname: 1, otherNames: 1, phone: 1, email: 1, electoralAreaName: 1};
+    let subAgentsRet = await pollAgentModel.find(filter, projection);
+    return subAgentsRet;
+}
+
+
 
 

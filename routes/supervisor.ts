@@ -10,7 +10,7 @@ import cookieParser from "cookie-parser";
 import { secrets , checkSecretsReturned } from "../utils/infisical";
 import { BUILD_TYPES } from "shared-lib/constants";
 import { pollAgentSession } from "../utils/session";
-import { postSubAgents } from "../controllers/supervisor";
+import { postSubAgents, getSubAgents } from "../controllers/supervisor";
 
 
 
@@ -40,7 +40,7 @@ setup();
 
 
 /*
-
+POST sub agents
 */
 router.post('/subagents',
 passport.authenticate('supervisor-cookie', {session: false}),
@@ -49,6 +49,21 @@ passport.authenticate('supervisor-cookie', {session: false}),
     postSubAgents(req,res,next)
     .then(()=>{
         return res.status(200).end();
+    })
+    .catch((err)=> endpointError(err,req,res));
+});
+
+
+/*
+GET sub agents
+*/
+router.get('/subagents',
+passport.authenticate('supervisor-cookie', {session: false}),
+(req,res,next)=>{
+    debug('received request to GET /subagents...');
+    getSubAgents(req,res,next)
+    .then((data)=>{
+        return res.status(200).send(data);
     })
     .catch((err)=> endpointError(err,req,res));
 });
