@@ -67,6 +67,8 @@ export async function signup(req: Request, res: Response, next: NextFunction) {
         debug('schema error: ', error);
         return Promise.reject({errMsg: i18next.t("request_body_error")});
     }
+
+    // get user record
     let { email, phone } = body;
     // first try to get record from the database to check pre-approval
     // highest levels of supervisors (country, region) use email, while others use phone
@@ -79,6 +81,8 @@ export async function signup(req: Request, res: Response, next: NextFunction) {
     let filter = { $or: filterArray };
     let record = await pollAgentModel.findOne(filter);
     debug('record: ', JSON.stringify(record));
+
+    // check that user pre-approved for signup, if user already signed up, etc.
     if (!record) return Promise.reject({errMsg: i18next.t("not_approved_signup")});
     // if email or phone already confirmed, account already exists. Reject so user can login
     if (record.emailConfirmed || record.phoneConfirmed) {
@@ -90,6 +94,7 @@ export async function signup(req: Request, res: Response, next: NextFunction) {
     } else { // supervisor. use email
         if (!body.email) return Promise.reject({errMsg: i18next.t("request_body_error")});
     }
+
     // update record with body fields, then send confirmation
     // admin preapproved using email or phone, thus not updating field that already exists
     if (record.email) body.email = undefined; // not updating email
@@ -187,6 +192,7 @@ export async function signupConfirm(req: Request, res: Response, next: NextFunct
         debug('schema error: ', error);
         return Promise.reject({errMsg: i18next.t("request_body_error")}); // todo printf
     }
+
     // first get record from the db
     let { email, phone } = body;
     // highest levels of supervisors (country, region) use email, while others use phone
@@ -199,16 +205,19 @@ export async function signupConfirm(req: Request, res: Response, next: NextFunct
     let filter = { $or: filterArray };
     let record = await pollAgentModel.findOne(filter);
     debug('record: ', JSON.stringify(record));
+
     // if email or phone already confirmed, account already exists. Reject so user can login
     if (record?.emailConfirmed || record?.phoneConfirmed) {
         return Promise.reject({errMsg: i18next.t("account_exists")});
     }
+
     // search otpCodes array for a code that matches
     let dbCodes = record?.otpCodes || []; // {code: 0}
     let ind = dbCodes.findIndex((codeObj)=> codeObj.code == body.code);
     if (ind == -1) {
         return Promise.reject({errMsg: i18next.t("wrong_code")});
     }
+
     // Ensure that the code has not expired
     let codeCreatedAt = record?.otpCodes[ind].createdAtms || 0; // dbCodes
     let deltaT = Date.now() - codeCreatedAt;
@@ -216,6 +225,7 @@ export async function signupConfirm(req: Request, res: Response, next: NextFunct
         debug(`code has expired: deltaT is ${deltaT/1000} seconds`);
         return Promise.reject({errMsg: i18next.t("expired_code")});
     }
+
     // At this point, code is equal, and within verification window. Update record
     let updateFields = email ? { emailConfirmed: true } : { phoneConfirmed: true };
     await pollAgentModel.updateOne(filter, {$set: updateFields});
@@ -239,8 +249,9 @@ export async function login(req: Request, res: Response, next: NextFunction) {
         debug('schema error: ', error);
         return Promise.reject({errMsg: i18next.t("request_body_error")});
     }
-    let { email, phone } = body;
+
     // first get record from db
+    let { email, phone } = body;
     let filterArray = [];
     if (email) filterArray.push({email});
     if (phone) filterArray.push({phone});
@@ -250,6 +261,7 @@ export async function login(req: Request, res: Response, next: NextFunction) {
     let filter = { $or: filterArray };
     let record = await pollAgentModel.findOne(filter);
     debug('record: ', JSON.stringify(record));
+
     // Ensure account exists
     if (!record?.emailConfirmed && !record?.phoneConfirmed) {
         return Promise.reject({errMsg: i18next.t("account_not_exist")});
@@ -259,6 +271,7 @@ export async function login(req: Request, res: Response, next: NextFunction) {
     if (!pwdEqual) {
         return Promise.reject({errMsg: i18next.t("wrong_email_password")});
     }
+
     // Account exists and password correct. Create OTP to be sent by email or to supervisor
     let code = (record.supervisorId) ? randomString({length: 4, type: 'numeric'}) : randomString({length: 6});
     let otpCodes_0 = record.otpCodes || [];
@@ -271,6 +284,7 @@ export async function login(req: Request, res: Response, next: NextFunction) {
     // update otp codes
     await pollAgentModel.updateOne(filter, {$set: {otpCodes}});
     debug(`code: ${code}`);
+
     // if supervisor, will send OTP by email, otherwise for subAgent, the OTP would be send to the supervisor's app to
     // be forwarded to the subAgent by text
     if (record.supervisorId) { // a subAgent
@@ -343,6 +357,7 @@ export async function loginConfirm(req: Request, res: Response, next: NextFuncti
         debug('schema error: ', error);
         return Promise.reject({errMsg: i18next.t("request_body_error")});
     }
+
     // first get record from the db
     let { email, phone } = body;
     // highest levels of supervisors (country, region) use email, while others use phone
@@ -354,17 +369,20 @@ export async function loginConfirm(req: Request, res: Response, next: NextFuncti
     }
     let filter = { $or: filterArray };
     let record = await pollAgentModel.findOne(filter);
+
     // Ensure account exists
     if (!record?.emailConfirmed && !record?.phoneConfirmed) {
         return Promise.reject({errMsg: i18next.t("account_not_exist")});
     }
     debug('record: ', JSON.stringify(record));
+
     // search otpCodes array for a code that matches
     let dbCodes = record?.otpCodes || []; // {code: 0}
     let ind = dbCodes.findIndex((codeObj)=> codeObj.code == body.code);
     if (ind == -1) {
         return Promise.reject({errMsg: i18next.t("wrong_code")});
     }
+
     // Ensure that the code has not expired
     let codeCreatedAt = record?.otpCodes[ind].createdAtms || 0; // dbCodes
     let deltaT = Date.now() - codeCreatedAt;
@@ -372,6 +390,7 @@ export async function loginConfirm(req: Request, res: Response, next: NextFuncti
         debug(`code has expired: deltaT is ${deltaT/1000} seconds`);
         return Promise.reject({errMsg: i18next.t("expired_code")});
     }
+    
     // set cookie for authenticating future requests
     if (email) req.session.email = email;
     if (phone) req.session.phone = phone;
@@ -585,7 +604,7 @@ export async function updateProfile(req: Request, res: Response, next: NextFunct
         debug('schema error: ', error);
         return Promise.reject({errMsg: i18next.t("request_body_error")});
     }
-    
+
     // ensure body not empty. Actually updating some field
     if (Object.keys(body).length == 0) {
         return Promise.reject({errMsg: i18next.t("request_body_error")});
