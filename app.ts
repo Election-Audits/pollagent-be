@@ -11,6 +11,7 @@ import passport from "passport";
 
 // import routers
 import loginRouter from "./routes/login";
+import supervisorRouter from "./routes/supervisor";
 //import agentRouter from "./routes/agents";
 
 
@@ -33,6 +34,7 @@ app.use(passport.initialize()); // initialize passport
 
 // mount routers
 app.use("/", loginRouter);
+app.use("/", supervisorRouter);
 //app.use("/", agentRouter);
 
 

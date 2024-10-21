@@ -33,7 +33,12 @@ const pollAgentSchema = new Schema({
     otherNames: SchemaTypes.String,
     email: {
         type: SchemaTypes.String,
-        unique: true
+        //unique: true,
+        index: {
+            unique: true,
+            partialFilterExpression: { email: { $type: 'string' } },
+        },
+        sparse: true
     },
     phone: SchemaTypes.String,
     password: SchemaTypes.String,
@@ -54,6 +59,9 @@ const pollAgentSchema = new Schema({
     country: SchemaTypes.String
 });
 
+// pollAgentSchema.index({email: 1}, 
+//     {unique: true, partialFilterExpression: {email: {$exists: true, $gt: ''}} }
+// );
 
 ////////////////////
 interface PollAgentData {
@@ -75,7 +83,7 @@ interface PollAgentData {
     subAgentsRef: string, // reference to subAgents/supervisees document
     //
     electoralLevel: string,
-    electoralAreaId: string,
+    electoralAreaId: string, // TODO: allow multiple?
     electoralAreaName: string,
     //
     partyId: string,
