@@ -60,3 +60,34 @@ export function checkDatabaseConnected() : Promise<void> {
     });
 }
 
+// -------------------- End (Mongoose setup) --------------------------
+
+
+
+/**
+ * Tries to insert a document to the database, if it fails bc record already exists, 
+ * would then try to update the existing record with the 'fieldsUpdate'
+ * @param model 
+ * @param fieldsUnique unique fields of model 
+ * @param fieldsUpdate other fields to be used for update if record already exists
+ * @returns 
+ */
+export async function tryInsertUpdate(model: mongoose.Model<any>, fieldsUnique: {[key: string]: any}, 
+    fieldsUpdate: {[key: string]: any}) {
+    // first try to insert
+    let allFields = {...fieldsUnique, ...fieldsUpdate};
+    try {
+        await model.create(allFields);
+    } catch (exc: any) {
+        debug('modle create exc: ', exc);
+        // check if the failure is due to a repeat of unique fields
+        if (exc?.code === 11000) {
+            // insert failed bc record exists, update 'update' fields only
+            await model.updateOne(fieldsUnique, {$set: fieldsUpdate});
+        } else {
+            return Promise.reject(exc);
+        }
+    }
+}
+
+

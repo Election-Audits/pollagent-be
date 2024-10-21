@@ -72,4 +72,17 @@ export const updateProfileSchema = Joi.object({
 });
 
 
+// add subAgents
+export const postSubAgentsSchema = Joi.object({
+    people: Joi.array().items(
+        Joi.object({
+            phone: Joi.number(),
+            surname: Joi.string().max(50),
+            otherNames: Joi.string().max(50)
+        })
+    )
+});
+
+
+
 

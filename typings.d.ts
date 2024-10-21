@@ -16,7 +16,9 @@ interface EmailInput {
 declare namespace Express {
 
     interface User { // add email to Request.User
+        _id: string,
         email: string,
-        phone: string
+        phone: string,
+        electoralLevel: string
     }
 }

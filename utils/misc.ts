@@ -3,6 +3,8 @@ import * as english from "shared-lib/locales/en.json";
 const debug = require('debug')('ea:utils-misc');
 debug.log = console.log.bind(console);
 import * as path from "path";
+import { checkDatabaseConnected } from "../db/mongoose";
+import { electoralLevelsModel } from "../db/models/others";
 
 
 /* constants */
@@ -38,3 +40,16 @@ export function getQueryNumberWithDefault(queryIn: unknown) : number {
     if (Number.isFinite(queryAsNumber)) return queryAsNumber;
     else return 1; // start from page 1
 }
+
+
+// get electoral levels from db and make it available to other files
+export let electoralLevels: string[] = [];
+
+async function getDataFromDatabase() {
+    await checkDatabaseConnected(); // wait for database connection
+    let findRet = await electoralLevelsModel.findOne();
+    electoralLevels = findRet?.levels.map((x)=> x.name || '') || [];
+}
+
+getDataFromDatabase();
+

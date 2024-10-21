@@ -8,6 +8,7 @@ import { Strategy as CookieStrategy } from "passport-cookie";
 import { pollAgentModel } from "./db/models/poll-agent";
 import * as express from "express";
 import i18next from "i18next";
+import { electoralLevels } from "./utils/misc";
 
 
 // Auth for subAgent, supervisor, and all pollAgents
@@ -32,6 +33,13 @@ async (req: express.Request, token: string | undefined, cb: Function)=>{
         let pollAgent = await pollAgentModel.findOne({email}, {password: 0});
         // ensure user has completed signup
         if (!pollAgent?.emailConfirmed) return cb(null, false, {errMsg: i18next.t("account_not_exist")});
+
+        // ensure user is a supervisor: electoralLevel in top two levels (country, region)
+        let myElectLevel = pollAgent.electoralLevel;
+        if (electoralLevels[0] !== myElectLevel && electoralLevels[1] !== myElectLevel) {
+            return cb(null, false, {errMsg: i18next.t("no_elect_level_permission")});
+        }
+
         //
         return cb(null, pollAgent);
     } catch (exc) {
@@ -58,8 +66,20 @@ async (req: express.Request, token: string | undefined, cb: Function)=>{
         if (!phone) {
             return cb(null, false, 'unauthorized. no cookie or phone');
         }
+
+        // ensure user has completed signup
         let pollAgent = await pollAgentModel.findOne({phone}, {password: 0});
         if (!pollAgent?.phoneConfirmed) return cb(null, false, {errMsg: i18next.t("account_not_exist")});
+
+        // ensure user is a subAgent, electoralLevel not in the first two levels ([country, region])
+        let myElectLevel = pollAgent.electoralLevel;
+        let ind = electoralLevels.findIndex((v)=> v==myElectLevel );
+        // reject: ind == 0 (country), ind==1 (region). Also ind==-1 (electoral level not found)
+        debug(`electoral level ind: ${ind}`);
+        if (ind < 2) {
+            return cb(null, false, {errMsg: i18next.t("no_elect_level_permission")});
+        }
+
         //
         return cb(null, pollAgent);
     } catch (exc) {
