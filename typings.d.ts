@@ -19,6 +19,7 @@ declare namespace Express {
         _id: string,
         email: string,
         phone: string,
-        electoralLevel: string
+        electoralLevel: string,
+        supervisorId: string
     }
 }
