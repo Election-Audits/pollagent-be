@@ -6,7 +6,7 @@ import i18next from "i18next";
 import { Request, Response, NextFunction } from "express";
 import { pollAgentModel } from "../db/models/poll-agent";
 import { electoralAreaModel } from "../db/models/electoral-area";
-import { pageLimit, getQueryNumberWithDefault } from "../utils/misc";
+import { pageLimit, getQueryNumberWithDefault, electoralLevels } from "../utils/misc";
 
 
 
@@ -17,26 +17,41 @@ import { pageLimit, getQueryNumberWithDefault } from "../utils/misc";
  * @param next 
  */
 export async function getElectoralAreaChoices(req: Request, res: Response, next: NextFunction) {
-    // NB: req.query.pg ensured to be a number by getQueryNumberWithDefault below 
+    // NB: req.query.pg ensured to be a number by getQueryNumberWithDefault below
 
+    // ensure that query.pg is a number. 
+    let page = getQueryNumberWithDefault(req.query?.pg); // get page from query or start with 1
+    let options = { page, limit: pageLimit}; // , projection
+
+    // determine whether the user is a sub agent or a supervisor
+    let supervisorId = req.user?.supervisorId; debug(`supervisorId: ${supervisorId}`);
+
+    // supervisor
+    if (!supervisorId) {
+        // a supervisor. Simply return the electoral level values at this user's electoral level
+        let filter = {level: req.user?.electoralLevel};
+        let electAreaRet = await electoralAreaModel.paginate(filter, options);
+        return {
+            results: electAreaRet.docs
+        };
+    }
+
+    // user is subAgent
     // get supervisor, get electoralAreaId and find all electoral areas with this parentLevelId
-    let supervisorId = req.user?.supervisorId;
     let projection = {password: 0}; //{electoralAreaId: 1};
     let supervisorRec = await pollAgentModel.findById(supervisorId, {projection});
-    debug('supervisorRec: ', supervisorRec);
+    debug('supervisorRec: ', JSON.stringify(supervisorRec));
     let supervisorElectAreaId = supervisorRec?.electoralAreaId;
     if (!supervisorElectAreaId) {
         return Promise.reject(`parent electoralAreaId not set for parent: ${supervisorId}`);
     }
 
-    // ensure that query.pg is a number. 
-    let page = getQueryNumberWithDefault(req.query?.pg); // get page from query or start with 1
-    let options = { page, limit: pageLimit}; // , projection
+    // get relevant page of data
     let filter = {parentLevelId: supervisorRec?.electoralAreaId};
-    let electoralAreas = await electoralAreaModel.paginate(filter, options);
+    let electAreaRet = await electoralAreaModel.paginate(filter, options);
 
     return {
-        results: electoralAreas.docs
+        results: electAreaRet.docs
     };
 }
 
