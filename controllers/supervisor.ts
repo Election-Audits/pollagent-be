@@ -4,7 +4,7 @@ const debug = require('debug')('ea:ctrl-supervisor');
 debug.log = console.log.bind(console);
 import i18next from "i18next";
 import { Request, Response, NextFunction } from "express";
-import { postSubAgentsSchema } from "../utils/joi";
+import { postSubAgentsSchema, getOneSubAgentSchema } from "../utils/joi";
 import { pollAgentModel } from "../db/models/poll-agent";
 import { supervisorModel } from "../db/models/others";
 import { electoralLevels } from "../utils/misc";
@@ -82,7 +82,7 @@ export async function getSubAgents(req: Request, res: Response, next: NextFuncti
     let supervisorRec = await supervisorModel.findOne({agentId: user?._id});
     let subAgentsObj = supervisorRec?.subAgents;
     let subPhones = Object.keys(subAgentsObj);
-    
+
     // get personal data of subAgents
     let filter = {phone: {$in: subPhones}};
     let projection = {surname: 1, otherNames: 1, phone: 1, email: 1, electoralAreaName: 1};
@@ -91,5 +91,33 @@ export async function getSubAgents(req: Request, res: Response, next: NextFuncti
 }
 
 
+/**
+ * Get a specific sub agent
+ * @param req 
+ * @param res 
+ * @param next 
+ */
+export async function getOneSubAgent(req: Request, res: Response, next: NextFunction) {
+    // validate inputs with Joi
+    let { error } = getOneSubAgentSchema.validate(req.params);
+    if (error) {
+        debug('schema error: ', error);
+        return Promise.reject({errMsg: i18next.t("request_body_error")});
+    }
+
+    // get supervisor record
+    let user = req.user;
+    let supervisorRec = await supervisorModel.findOne({agentId: user?._id});
+    // ensure that this subagent is assigned to this supervisor
+    let subAgentPhone = req.params.phone;
+    if (!supervisorRec?.subAgents[subAgentPhone]) {
+        return Promise.reject('user is not your sub agent');
+    }
+
+    // get subAgent'srecord
+    let projection = {surname: 1, otherNames: 1, phone: 1, email: 1, electoralAreaName: 1};
+    let subAgentRec = await pollAgentModel.findOne({phone: subAgentPhone}, projection);
+    return subAgentRec;
+}
 
 
