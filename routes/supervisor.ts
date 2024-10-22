@@ -10,7 +10,7 @@ import cookieParser from "cookie-parser";
 import { secrets , checkSecretsReturned } from "../utils/infisical";
 import { BUILD_TYPES } from "shared-lib/constants";
 import { pollAgentSession } from "../utils/session";
-import { postSubAgents, getSubAgents, getOneSubAgent } from "../controllers/supervisor";
+import { postSubAgents, getSubAgents, getOneSubAgent, getSubAgentCode } from "../controllers/supervisor";
 
 
 
@@ -77,6 +77,21 @@ passport.authenticate('supervisor-cookie', {session: false}),
 (req,res,next)=>{
     debug('received request to /subagent/:phone...');
     getOneSubAgent(req,res,next)
+    .then((data)=>{
+        return res.status(200).send(data);
+    })
+    .catch((err)=> endpointError(err,req,res));
+});
+
+
+/*
+GET an OTP for a sub agent
+*/
+router.get('/subagent/:phone/code',
+passport.authenticate('supervisor-cookie', {session: false}),
+(req,res,next)=>{
+    debug('received request to /subagent/:phone/code...');
+    getSubAgentCode(req,res,next)
     .then((data)=>{
         return res.status(200).send(data);
     })

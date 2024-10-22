@@ -13,6 +13,7 @@ export const auditDbName = 'eaudit';
 export const pollAgentCookieMaxAge = 183*24*3600*1000; // max age in milliseconds (183 days ~ 6 months)
 
 export const pageLimit = 20;
+export const verifyWindow = 30*60*1000; // ms. (30 minutes) 30*60*1000
 
 // directory for temp upload of excel files for getting data from
 export const filesDir = path.join(__dirname, '..','..','..', 'files', 'staff');

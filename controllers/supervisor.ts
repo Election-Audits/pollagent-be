@@ -7,10 +7,14 @@ import { Request, Response, NextFunction } from "express";
 import { postSubAgentsSchema, getOneSubAgentSchema } from "../utils/joi";
 import { pollAgentModel } from "../db/models/poll-agent";
 import { supervisorModel } from "../db/models/others";
-import { electoralLevels } from "../utils/misc";
+import { electoralLevels, verifyWindow } from "../utils/misc";
 import { tryInsertUpdate } from "../db/mongoose";
 
-
+// ES Module import
+let randomString : Function;
+import('crypto-random-string').then((importRet)=>{
+    randomString = importRet.default;
+});
 
 /**
  * Add sub agents
@@ -111,7 +115,7 @@ export async function getOneSubAgent(req: Request, res: Response, next: NextFunc
     // ensure that this subagent is assigned to this supervisor
     let subAgentPhone = req.params.phone;
     if (!supervisorRec?.subAgents[subAgentPhone]) {
-        return Promise.reject('user is not your sub agent');
+        return Promise.reject({errMsg: i18next.t('user_not_subagent')});
     }
 
     // get subAgent'srecord
@@ -120,4 +124,49 @@ export async function getOneSubAgent(req: Request, res: Response, next: NextFunc
     return subAgentRec;
 }
 
+
+/**
+ * Get an OTP for a sub agent
+ * @param req 
+ * @param res 
+ * @param next 
+ */
+export async function getSubAgentCode(req: Request, res: Response, next: NextFunction) {
+    // validate inputs with Joi. NB: uses phone param just like getOneSubAgent
+    let { error } = getOneSubAgentSchema.validate(req.params);
+    if (error) {
+        debug('schema error: ', error);
+        return Promise.reject({errMsg: i18next.t("request_body_error")});
+    }
+
+    // get supervisor record
+    let user = req.user;
+    let supervisorRec = await supervisorModel.findOne({agentId: user?._id});
+    // ensure that this subagent is assigned to this supervisor
+    let subAgentPhone = req.params.phone;
+    if (!supervisorRec?.subAgents[subAgentPhone]) {
+        return Promise.reject({errMsg: i18next.t('user_not_subagent')});
+    }
+
+    // generate a code, save in sub agent's record
+    let code = randomString({length: 4, type: 'numeric'});
+    // get subAgent record to process otpCodes
+    let subAgentRecord = await pollAgentModel.findOne({phone: subAgentPhone});
+    if (!subAgentRecord) {
+        return Promise.reject({errMsg: i18next.t('entity_not_exist')});
+    }
+    let otpCodes_0 = subAgentRecord.otpCodes || [];
+    let otpCodes = [...otpCodes_0, {code, createdAtms: Date.now()}];
+    // remove otp codes that are too old
+    otpCodes = otpCodes.filter((x: any)=>{
+        let codeAge = Date.now() - x.createdAtms;
+        return codeAge < 2*verifyWindow;
+    });
+    
+    // update subAgent record otp codes
+    await pollAgentModel.updateOne({phone: subAgentPhone}, {$set: {otpCodes}});
+
+    // send code to supervisor
+    return { code };
+}
 
