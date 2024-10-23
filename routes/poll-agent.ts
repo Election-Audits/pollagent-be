@@ -10,7 +10,7 @@ import cookieParser from "cookie-parser";
 import { secrets , checkSecretsReturned } from "../utils/infisical";
 import { BUILD_TYPES } from "shared-lib/constants";
 import { pollAgentSession } from "../utils/session";
-import { getElectoralAreaChoices } from "../controllers/poll-agent";
+import { getElectoralAreaChoices, assignAgentElectoralArea } from "../controllers/poll-agent";
 
 
 const router = express.Router();
@@ -53,8 +53,19 @@ passport.authenticate('pollagent-cookie', {session: false}),
 });
 
 
-
-
+/*
+Add an electoral area (eg. polling station) to those handled by this polling agent 
+*/
+router.put('/agent/electoral-area',
+passport.authenticate('pollagent-cookie', {session: false}),
+(req,res,next)=>{
+    debug('received request to PUT /agent/electoral-area...');
+    assignAgentElectoralArea(req,res,next)
+    .then(()=>{
+        return res.status(200).end();
+    })
+    .catch((err)=> endpointError(err,req,res));
+});
 
 
 

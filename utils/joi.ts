@@ -90,4 +90,13 @@ export const getOneSubAgentSchema = Joi.object({
 });
 
 
+// assign an electoral area to an agent
+export const putAgentElectoralAreaSchema = Joi.object({
+    electoralAreaId: Joi.string().max(30)
+    // values: Joi.array().items(
+    //     Joi.object({
+    //         id: Joi.string().max(30)
+    //     })
+    // )
+});
 

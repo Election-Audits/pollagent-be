@@ -7,6 +7,8 @@ import { Request, Response, NextFunction } from "express";
 import { pollAgentModel } from "../db/models/poll-agent";
 import { electoralAreaModel } from "../db/models/electoral-area";
 import { pageLimit, getQueryNumberWithDefault, electoralLevels } from "../utils/misc";
+import { putAgentElectoralAreaSchema } from "../utils/joi";
+// import { Types as mongooseTypes } from "mongoose";
 
 
 
@@ -53,5 +55,57 @@ export async function getElectoralAreaChoices(req: Request, res: Response, next:
     return {
         results: electAreaRet.docs
     };
+}
+
+
+/**
+ * Assign an electoral area (eg. polling station) to a polling agent
+ * @param req 
+ * @param res 
+ * @param next 
+ */
+export async function assignAgentElectoralArea(req: Request, res: Response, next: NextFunction) {
+    // Joi input check
+    let body = req.body;
+    let { error } = await putAgentElectoralAreaSchema.validateAsync(body);
+    if (error) {
+        debug('schema error: ', error);
+        return Promise.reject({errMsg: i18next.t("request_body_error")});
+    }
+
+    // obtain details of electoral area
+    let electoralArea = await electoralAreaModel.findById(body.electoralAreaId);
+
+    // if supervisor exists, must pick an electoral area such that parentLevelId == supervisor.electoralAreaId
+    let supervisorId = req.user?.supervisorId
+    if (supervisorId) {
+        let projection = {electoralAreaId: 1};
+        let supervisorRet = await pollAgentModel.findById(supervisorId, projection);
+        // debug('supervisorRet: ', supervisorRet);
+        if (electoralArea?.parentLevelId !== supervisorRet?.electoralAreaId) {
+            return Promise.reject(`electoral area outside supervisor's area`); // ${electoralArea?.level}
+        }
+    }
+
+    // set electoralAreaId and electoralAreaName. If a polling station, add to pollingStations field
+    let updateFields: {[key:string]: any} = {
+        electoralAreaId: body.electoralAreaId,
+        electoralAreaName: electoralArea?.name
+    };
+
+    // if agent is at lowest level, ie polling station, set polling station fields
+    let levelInd = electoralLevels.findIndex((lvl)=> lvl == req.user?.electoralLevel);
+    if (levelInd == electoralLevels.length-1) { // lowest level, polling station agent
+        updateFields[`pollStations.${body.electoralAreaId}`] = {
+            name: electoralArea?.name,
+            id: electoralArea?._id
+        }
+
+        // TODO: then update the StationAgentMap
+    }
+
+    // update Poll Agent record
+    let filter = {_id: req.user?._id}; // mongooseTypes.ObjectId()
+    await pollAgentModel.updateOne(filter, {$set: updateFields});
 }
 

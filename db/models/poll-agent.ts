@@ -56,7 +56,11 @@ const pollAgentSchema = new Schema({
     electoralAreaName: SchemaTypes.String,
     //
     partyId: SchemaTypes.String,
-    country: SchemaTypes.String
+    country: SchemaTypes.String,
+    // pollStations keyed by pollStation id and with value {name, id}
+    pollStations: new Schema({
+
+    }, {strict: false})
 });
 
 // pollAgentSchema.index({email: 1}, 
@@ -87,7 +91,8 @@ interface PollAgentData {
     electoralAreaName: string,
     //
     partyId: string,
-    country: string
+    country: string,
+    pollStations: object
 };
 
 
