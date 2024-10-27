@@ -3,7 +3,7 @@
 import * as mongoose from "mongoose";
 const debug = require('debug')('ea:pollagent-model');
 debug.log = console.log.bind(console);
-import { databaseConns, checkDatabaseConnected } from "../mongoose";
+import { databaseConns, checkDatabaseConnected, auditDbName } from "../mongoose";
 import { DBS } from "../../utils/env"
 import paginate from "mongoose-paginate-v2";
 
@@ -14,10 +14,14 @@ check db connection, then create model using db connection
 async function setup() {
     await checkDatabaseConnected();
     let dbs = DBS?.split(",") || [];
-    //
-    // now setup eaudit database for Poll Agents
-    pollAgentModel = databaseConns.eaudit.model<PollAgentDocument, mongoose.PaginateModel<PollAgentDocument> >
-    ("PollAgent", pollAgentSchema, "PollAgents");
+    // set up poll agent on audit db only
+    for (let db of dbs) {
+        if (db != auditDbName) continue;
+        // audit db
+        // setup PollAgents model on eaudit* database
+        pollAgentModel = databaseConns.eaudit.model<PollAgentDocument, mongoose.PaginateModel<PollAgentDocument> >
+        ("PollAgent", pollAgentSchema, "PollAgents");
+    }
 }
 setup();
 
@@ -56,6 +60,7 @@ const pollAgentSchema = new Schema({
     electoralAreaName: SchemaTypes.String,
     //
     partyId: SchemaTypes.String,
+    candidateId: SchemaTypes.String, // for independent candidates without parties
     country: SchemaTypes.String,
     // pollStations keyed by pollStation id and with value {name, id}
     pollStations: new Schema({

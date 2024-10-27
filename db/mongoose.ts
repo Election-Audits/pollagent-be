@@ -6,8 +6,7 @@ debug.log = console.log.bind(console);
 import { BUILD_TYPES } from "shared-lib/constants";
 import { BUILD, INFISICAL_ID, INFISICAL_SECRET, INFISICAL_PROJECT_ID, NODE_ENV, 
     MONGO_LOCAL_CREDS, DBS } from "../utils/env";
-import { secrets } from "../utils/infisical";
-import { auditDbName } from "../utils/misc";
+import { secrets, checkSecretsReturned } from "../utils/infisical";
 
 
 // set connection string depending on whether it's a local or cloud build
@@ -17,9 +16,16 @@ export let eAuditMongoUrl = ''; // general 'eaudit' db assign in setup
 export let databaseConns: {[key: string]: mongoose.Connection}  = {}; // database connections
 
 
+// audit db holds User and session collections. Either eaudit, 'eaudit-test',...
+let dbs = DBS?.split(',') || [];
+export const auditDbName = dbs.find((db)=> db.startsWith('eaudit'));
+debug('auditDbName: ', auditDbName);
+
+
 // setup steps
 async function setup() {
-    const mongoUrlBase = (BUILD == BUILD_TYPES.local) ? '127.0.0.1:27017' : secrets.MONGO_URL; // TODO: set cloud urls
+    await checkSecretsReturned();
+    const mongoUrlBase = (BUILD == BUILD_TYPES.local) ? '127.0.0.1:27017' : secrets.MONGO_URL;
     // mongo credentials
     const mongoCreds = (BUILD == BUILD_TYPES.local) ? MONGO_LOCAL_CREDS : 
     `${secrets.MONGO_USER}:${secrets.MONGO_PASSWORD}@`;
@@ -31,7 +37,7 @@ async function setup() {
     let connectFunctions = [];
     for (let db of dbs) {
         let url = `${protocol}://${mongoCreds}${mongoUrlBase}/${db}`;
-        debug('mongo url: ', url);
+        /// debug('mongo url: ', url);
         connectFunctions.push(mongoose.createConnection(url));
     }
     let connectRets = await Promise.all(connectFunctions);

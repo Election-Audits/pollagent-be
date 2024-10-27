@@ -8,8 +8,6 @@ import { electoralLevelsModel } from "../db/models/others";
 
 
 /* constants */
-export const auditDbName = 'eaudit';
-
 export const pollAgentCookieMaxAge = 183*24*3600*1000; // max age in milliseconds (183 days ~ 6 months)
 
 export const pageLimit = 20;

@@ -9,7 +9,7 @@ import { supervisorModel } from "../db/models/others";
 import i18next from "i18next";
 import * as bcrypt from "bcrypt";
 import { secrets ,checkSecretsReturned } from "../utils/infisical";
-import { pollAgentCookieMaxAge } from "../utils/misc";
+import { pollAgentCookieMaxAge, verifyWindow } from "../utils/misc";
 import { signupSchema, signupConfirmSchema, loginSchema, loginConfirmSchema, passwordResetSchema, 
 passwordResetConfirmSchema, resendCodeSchema, updateProfileSchema } from "../utils/joi";
 import { Request, Response, NextFunction } from "express";
@@ -21,8 +21,6 @@ import('crypto-random-string').then((importRet)=>{
     randomString = importRet.default;
 });
 
-// time limit to confirm code for 2FA 
-const verifyWindow = 30*60*1000; // ms. (30 minutes) 30*60*1000
 
 const cookieOptions = {
     httpOnly: true, signed: true, maxAge: pollAgentCookieMaxAge

@@ -3,7 +3,7 @@
 import * as mongoose from "mongoose";
 const debug = require('debug')('ea:other-models');
 debug.log = console.log.bind(console);
-import { databaseConns, checkDatabaseConnected } from "../mongoose";
+import { databaseConns, checkDatabaseConnected, auditDbName } from "../mongoose";
 import { DBS } from "../../utils/env"
 
 
@@ -12,7 +12,7 @@ async function setup() {
     let dbs = DBS?.split(",") || [];
     // create models for each database (by country/entity)
     for (let db of dbs) {
-        if (db == 'eaudit') continue;
+        if (db == auditDbName) continue;
         // create models
         electoralLevelsModel = databaseConns[db].model("ElectoralLevels", electoralLevelsSchema, "ElectoralLevels");
         supervisorModel = databaseConns[db].model("Supervisors", supervisorSchema, "Supervisors");
