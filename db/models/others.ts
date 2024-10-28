@@ -16,6 +16,7 @@ async function setup() {
         // create models
         electoralLevelsModel = databaseConns[db].model("ElectoralLevels", electoralLevelsSchema, "ElectoralLevels");
         supervisorModel = databaseConns[db].model("Supervisors", supervisorSchema, "Supervisors");
+        resultModel = databaseConns[db].model("Results", resultSchema, "Results");
     }
 }
 
@@ -63,3 +64,23 @@ supervisorSchema.index({agentId: 1}, {unique: true});
 // init model. Will be updated upon db connections in 'setup'
 export let supervisorModel = mongoose.model("Supervisors", supervisorSchema, "Supervisors");
 // --------------------
+
+
+// -------------------- Results Schema
+const resultSchema = new Schema({
+    electionId: SchemaTypes.String, // election these results belong to
+    partyId: SchemaTypes.String, // party id of uploader
+    candidateId: SchemaTypes.String, // candidate id of uploader
+    uploaderId: SchemaTypes.String, // id of poll agent
+    results: new Schema({ // keyed by partyId or candidateId
+
+    }, {strict: false})
+});
+
+resultSchema.index({electionId: 1, partyId: 1, candidateId: 1});
+
+// init model. Will be updated upon db connections in 'setup'
+export let resultModel = mongoose.model("Results", resultSchema, "Results");
+
+// --------------------
+

@@ -32,12 +32,12 @@ async function setup() {
     // set eAuditMongoUrl value for export to utils/session
     eAuditMongoUrl = `${protocol}://${mongoCreds}${mongoUrlBase}/${auditDbName}`;
     // for each database in DBS, establish a connection
-    let mongoOptions: mongoose.ConnectOptions = {};
+    // let mongoOptions: mongoose.ConnectOptions = {};
     let dbs = DBS?.split(',') || [];
     let connectFunctions = [];
     for (let db of dbs) {
-        let url = `${protocol}://${mongoCreds}${mongoUrlBase}/${db}`;
-        /// debug('mongo url: ', url);
+        let url = `${protocol}://${mongoCreds}${mongoUrlBase}/${db}?retryWrites=true&w=majority&appName=Cluster0`; //   
+        // debug('db to connect: ', db);
         connectFunctions.push(mongoose.createConnection(url));
     }
     let connectRets = await Promise.all(connectFunctions);

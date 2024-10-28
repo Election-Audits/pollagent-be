@@ -20,6 +20,8 @@ declare namespace Express {
         email: string,
         phone: string,
         electoralLevel: string,
-        supervisorId: string
+        supervisorId: string,
+        partyId: string,
+        candidateId: string
     }
 }

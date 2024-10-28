@@ -19,7 +19,7 @@ async function setup() {
         if (db != auditDbName) continue;
         // audit db
         // setup PollAgents model on eaudit* database
-        pollAgentModel = databaseConns.eaudit.model<PollAgentDocument, mongoose.PaginateModel<PollAgentDocument> >
+        pollAgentModel = databaseConns[db].model<PollAgentDocument, mongoose.PaginateModel<PollAgentDocument> >
         ("PollAgent", pollAgentSchema, "PollAgents");
     }
 }

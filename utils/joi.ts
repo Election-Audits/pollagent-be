@@ -18,6 +18,7 @@ export const signupSchema = Joi.object({
     phone,
     password: password.required()
 });
+// TODO: apply .or for email, phone
 
 
 // schema for signupConfirm endpoint
@@ -93,10 +94,11 @@ export const getOneSubAgentSchema = Joi.object({
 // assign an electoral area to an agent
 export const putAgentElectoralAreaSchema = Joi.object({
     electoralAreaId: Joi.string().max(30)
-    // values: Joi.array().items(
-    //     Joi.object({
-    //         id: Joi.string().max(30)
-    //     })
-    // )
+});
+
+
+// upload pictures of polling station results
+export const postResultPicturesSchema = Joi.object({
+    electionId: Joi.string().alphanum().max(30),
 });
 
