@@ -45,7 +45,6 @@ Upload pictures of Polling Station Results Document (PSRDs)
 */
 router.post('/results/pictures',
 passport.authenticate('subagent-cookie', {session: false}),
-multer().none(), // TODO: remove when writing files
 (req,res,next)=>{
     debug('received request to /results/upload');
     uploadResultsPictures(req,res,next)

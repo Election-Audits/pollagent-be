@@ -9,6 +9,7 @@ import multer from "multer";
 import { resultModel } from "../db/models/others";
 import { pollAgentModel } from "../db/models/poll-agent";
 import { postResultPicturesSchema } from "../utils/joi";
+import { saveResultFiles } from "./files";
 
 
 
@@ -19,17 +20,20 @@ import { postResultPicturesSchema } from "../utils/joi";
  * @param res 
  * @param next 
  */
-export async function uploadResultsPictures(req: Request, res: Response, next: NextFunction) {
+export async function uploadResultsPictures(req: Request, res: Response, next: NextFunction) {  
+    // save files using multer, also get req.body
+    await saveResultFiles(req,res,next);
+
     // input check with Joi
     let body = req.body;
-    let { error } = postResultPicturesSchema.validate(body); // await. todo
+    let { error } = await postResultPicturesSchema.validateAsync(body);
     if (error) {
         debug('schema error: ', error);
         return Promise.reject({errMsg: i18next.t("request_body_error")});
     }
 
     // create a new record, obtain the id to associate with upload, and send to poll agent
-    debug('user: ', req.user);
+    // debug('user: ', req.user);
     let preResult = {
         electionId: body.electionId,
         partyId: req.user?.partyId,
@@ -37,6 +41,9 @@ export async function uploadResultsPictures(req: Request, res: Response, next: N
         uploaderId: req.user?._id
     };
     let createRet = await resultModel.create(preResult);
+
+    // save files in S3
+    
 
 
     // return resultId
