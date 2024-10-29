@@ -91,9 +91,9 @@ export function ensureDirExists(dirPath: string) : Promise<void> {
 
 
 // create s3 client
-export let s3Client = new S3Client({
+export let s3client = new S3Client({
     endpoint: S3_ENDPOINT,
-    //region: S3_REGION,
+    region: S3_REGION,
     credentials: {
         accessKeyId: S3_KEY_ID+'',
         secretAccessKey: S3_KEY_SECRET+''
@@ -104,9 +104,9 @@ export let s3Client = new S3Client({
 
 // setup s3 client in the cloud (after awaiting Infisical secrets)
 function setS3ClientCloud() {
-    s3Client = new S3Client({
+    s3client = new S3Client({
         endpoint: S3_ENDPOINT,
-        //region: S3_REGION,
+        region: S3_REGION,
         credentials: {
             accessKeyId: secrets.S3_KEY_ID,
             secretAccessKey: secrets.S3_KEY_SECRET
