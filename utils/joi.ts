@@ -7,7 +7,7 @@ import * as Joi from "joi";
 
 // reused validation fields
 const email = Joi.string().email().min(3).max(30);
-const password = Joi.string().min(8).max(30);
+const password = Joi.string().min(6).max(30);
 const phone = Joi.number();
 const code = Joi.string().alphanum().max(20);
 

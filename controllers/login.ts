@@ -230,6 +230,15 @@ export async function signupConfirm(req: Request, res: Response, next: NextFunct
     // set cookie for authenticating future requests
     if (email) req.session.email = email;
     if (phone) req.session.phone = phone;
+
+    // data to send to client : {[key: string]: any}
+    let retData = {
+        email,
+        phone,
+        surname: record?.surname,
+        otherNames: record?.otherNames
+    };
+    return retData;
 }
 
 

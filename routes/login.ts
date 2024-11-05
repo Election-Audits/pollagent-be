@@ -28,14 +28,14 @@ router.use(cookieParser(cookieSecret));
 
 /*
 Obtain secrets (cookie), set up cookie parser
-*/
+*
 async function setup() {
     await checkSecretsReturned();
     // set cookie secret for cloud build. Will be used by cookieParser
     cookieSecret = (BUILD == BUILD_TYPES.local) ? cookieSecretEnv+'' : secrets.COOKIE_SECRET;
 }
-
 setup();
+*/
 
 
 /*
