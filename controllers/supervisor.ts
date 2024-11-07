@@ -7,7 +7,7 @@ import { Request, Response, NextFunction } from "express";
 import { postSubAgentsSchema, getOneSubAgentSchema } from "../utils/joi";
 import { pollAgentModel } from "../db/models/poll-agent";
 import { supervisorModel } from "../db/models/others";
-import { electoralLevels, verifyWindow } from "../utils/misc";
+import { getElectoralLevels, verifyWindow } from "../utils/misc";
 import { tryInsertUpdate } from "../db/mongoose";
 
 // ES Module import
@@ -35,15 +35,18 @@ export async function postSubAgents(req: Request, res: Response, next: NextFunct
     // iterate body.people and build objects for updating Supervisors
     let subAgentsObj: {[key: string]: boolean} = {};
     for (let subAgent of body.people) {
-        let field = `subAgents.${subAgent.phone}`;
+        let info = subAgent.phone || subAgent.email;
+        let field = `subAgents.${info}`;
         subAgentsObj[field] = true;
     }
+
     //
     let filter = { agentId: req.user?._id };
     await supervisorModel.updateOne(filter, {$set: subAgentsObj}); // add subAgents
     
     // ensure electoral levels are valid
     let myElectLevel = req.user?.electoralLevel;
+    let electoralLevels = getElectoralLevels();
     let myLevelInd = electoralLevels.findIndex((x)=> x==myElectLevel );
     if (myLevelInd == -1) {
         return Promise.reject(`user has electoral level outside available levels: ${myElectLevel}`);
@@ -68,6 +71,7 @@ export async function postSubAgents(req: Request, res: Response, next: NextFunct
         let fieldsUpdate = agentUpdate;
         dbFuncs.push( tryInsertUpdate(pollAgentModel, fieldsUnique, fieldsUpdate) );
     }
+
     //
     await Promise.all(dbFuncs);
 }

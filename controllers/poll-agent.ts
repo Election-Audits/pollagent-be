@@ -6,7 +6,7 @@ import i18next from "i18next";
 import { Request, Response, NextFunction } from "express";
 import { pollAgentModel } from "../db/models/poll-agent";
 import { electoralAreaModel } from "../db/models/electoral-area";
-import { pageLimit, getQueryNumberWithDefault, electoralLevels } from "../utils/misc";
+import { pageLimit, getQueryNumberWithDefault, getElectoralLevels } from "../utils/misc";
 import { putAgentElectoralAreaSchema } from "../utils/joi";
 // import { Types as mongooseTypes } from "mongoose";
 
@@ -94,6 +94,7 @@ export async function assignAgentElectoralArea(req: Request, res: Response, next
     };
 
     // if agent is at lowest level, ie polling station, set polling station fields
+    let electoralLevels = getElectoralLevels();
     let levelInd = electoralLevels.findIndex((lvl)=> lvl == req.user?.electoralLevel);
     if (levelInd == electoralLevels.length-1) { // lowest level, polling station agent
         updateFields[`pollStations.${body.electoralAreaId}`] = {

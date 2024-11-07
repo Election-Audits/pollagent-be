@@ -60,7 +60,12 @@ export function getQueryNumberWithDefault(queryIn: unknown) : number {
 
 
 // get electoral levels from db and make it available to other files
-export let electoralLevels: string[] = [];
+let electoralLevels: string[] = [];
+
+export function getElectoralLevels() {
+    return electoralLevels;
+}
+
 
 async function getDataFromDatabase() {
     await checkDatabaseConnected(); // wait for database connection
