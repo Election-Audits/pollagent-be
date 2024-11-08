@@ -16,6 +16,8 @@ import('crypto-random-string').then((importRet)=>{
     randomString = importRet.default;
 });
 
+
+
 /**
  * Add sub agents
  * @param req 
@@ -30,19 +32,6 @@ export async function postSubAgents(req: Request, res: Response, next: NextFunct
         debug('schema error: ', error);
         return Promise.reject({errMsg: i18next.t("request_body_error")});
     }
-
-    // add subagents to Supervisors collection
-    // iterate body.people and build objects for updating Supervisors
-    let subAgentsObj: {[key: string]: boolean} = {};
-    for (let subAgent of body.people) {
-        let info = subAgent.phone || subAgent.email;
-        let field = `subAgents.${info}`;
-        subAgentsObj[field] = true;
-    }
-
-    //
-    let filter = { agentId: req.user?._id };
-    await supervisorModel.updateOne(filter, {$set: subAgentsObj}); // add subAgents
     
     // ensure electoral levels are valid
     let myElectLevel = req.user?.electoralLevel;
@@ -59,21 +48,71 @@ export async function postSubAgents(req: Request, res: Response, next: NextFunct
     // update records in PollAgents collection to allow signup/login of subAgent
     let dbFuncs = []; // mongoose functions
     for (let subAgent of body.people) {
-        // agent update object
-        let agentUpdate : {[key: string]: any} = {
-            supervisorId: req.user?._id,
-            electoralLevel: subElectLevel
-        };
-        if (subAgent.surname) agentUpdate.surname = subAgent.surname;
-        if (subAgent.otherNames) agentUpdate.otherNames = subAgent.otherNames;
-        //
-        let fieldsUnique = {phone: subAgent.phone};
-        let fieldsUpdate = agentUpdate;
-        dbFuncs.push( tryInsertUpdate(pollAgentModel, fieldsUnique, fieldsUpdate) );
+        dbFuncs.push(addOneSubAgent(req.user, subAgent, subElectLevel));
+    }
+    //
+    let retIds = await Promise.all(dbFuncs); // returns array of _ids
+
+    // add subagents to Supervisors collection
+    // iterate body.people and build objects for updating Supervisors
+    let subAgentsObj: {[key: string]: boolean} = {};
+    for (let subAgentId of retIds) {
+        let field = `subAgents.${subAgentId}`;
+        subAgentsObj[field] = true;
     }
 
     //
-    await Promise.all(dbFuncs);
+    let filter = { agentId: req.user?._id };
+    await supervisorModel.updateOne(filter, {$set: subAgentsObj}); // add subAgents
+}
+
+/**
+ * Add a single subagent 
+ * @param supervisor 
+ * @param subAgentIn 
+ * @param electoralLevel 
+ * @returns 
+ */
+async function addOneSubAgent(supervisor: Express.User | undefined, subAgentIn: {[key: string]: string},  
+electoralLevel: string): Promise<string> {
+    // check if sub agent already exists
+    let {email, phone} = subAgentIn;
+    let filterArr = [];
+    if (email) filterArr.push({email});
+    if (phone) filterArr.push({phone});
+    if (!email && !phone) {
+        return Promise.reject({errMsg: i18next.t('request_body_error')});
+    }
+    let filter = {$or: filterArr};
+    let agentRet = await pollAgentModel.findOne(filter);
+    //debug('sub agent: ', JSON.stringify(agentRet));
+
+    let dataToWrite: {[key: string]: string|undefined} = {
+        supervisorId: supervisor?._id,
+        electoralLevel,
+        partyId: supervisor?.partyId,
+        candidateId: supervisor?.candidateId
+    };
+    if (subAgentIn.surname) dataToWrite.surname = subAgentIn.surname;
+    if (subAgentIn.otherNames) dataToWrite.otherNames = subAgentIn.otherNames;
+
+    // if agent exists, use update, check for existence of supervisor
+    let subAgentId = "";
+    if (agentRet) {
+        //if (agent.supervisorId)
+        let updateRet = await pollAgentModel.updateOne(filter, {$set: dataToWrite});
+        // debug('updateRet: ', updateRet);
+        subAgentId = agentRet._id+'';
+    } else {
+        // subagent doesn't exist. add phone and email
+        dataToWrite.email = subAgentIn.email;
+        dataToWrite.phone = subAgentIn.phone;
+        let insertRet = await pollAgentModel.create(dataToWrite);
+        // debug('insertRet: ', insertRet);
+        subAgentId = insertRet._id+'';
+    }
+
+    return subAgentId; // return id of account created/updated
 }
 
 
@@ -89,10 +128,10 @@ export async function getSubAgents(req: Request, res: Response, next: NextFuncti
     // query Supervisors collection with agentId == _id
     let supervisorRec = await supervisorModel.findOne({agentId: user?._id});
     let subAgentsObj = supervisorRec?.subAgents;
-    let subPhones = Object.keys(subAgentsObj);
+    let subAgentIds = Object.keys(subAgentsObj);
 
     // get personal data of subAgents
-    let filter = {phone: {$in: subPhones}};
+    let filter = {_id: {$in: subAgentIds}}; //{phone: {$in: subPhones}};
     let projection = {surname: 1, otherNames: 1, phone: 1, email: 1, electoralAreaName: 1};
     let subAgentsRet = await pollAgentModel.find(filter, projection);
     return subAgentsRet;
@@ -117,14 +156,15 @@ export async function getOneSubAgent(req: Request, res: Response, next: NextFunc
     let user = req.user;
     let supervisorRec = await supervisorModel.findOne({agentId: user?._id});
     // ensure that this subagent is assigned to this supervisor
-    let subAgentPhone = req.params.phone;
-    if (!supervisorRec?.subAgents[subAgentPhone]) {
+    let subAgentId = req.params.id;
+    if (!supervisorRec?.subAgents[subAgentId]) {
         return Promise.reject({errMsg: i18next.t('user_not_subagent')});
     }
 
     // get subAgent'srecord
     let projection = {surname: 1, otherNames: 1, phone: 1, email: 1, electoralAreaName: 1};
-    let subAgentRec = await pollAgentModel.findOne({phone: subAgentPhone}, projection);
+    //let subAgentRec = await pollAgentModel.findOne({phone: subAgentId}, projection);
+    let subAgentRec = await pollAgentModel.findById(subAgentId, projection);
     return subAgentRec;
 }
 
@@ -147,15 +187,15 @@ export async function getSubAgentCode(req: Request, res: Response, next: NextFun
     let user = req.user;
     let supervisorRec = await supervisorModel.findOne({agentId: user?._id});
     // ensure that this subagent is assigned to this supervisor
-    let subAgentPhone = req.params.phone;
-    if (!supervisorRec?.subAgents[subAgentPhone]) {
+    let subAgentId = req.params.id;
+    if (!supervisorRec?.subAgents[subAgentId]) {
         return Promise.reject({errMsg: i18next.t('user_not_subagent')});
     }
 
     // generate a code, save in sub agent's record
     let code = randomString({length: 4, type: 'numeric'});
     // get subAgent record to process otpCodes
-    let subAgentRecord = await pollAgentModel.findOne({phone: subAgentPhone});
+    let subAgentRecord = await pollAgentModel.findById(subAgentId);  //findOne({phone: subAgentId});
     if (!subAgentRecord) {
         return Promise.reject({errMsg: i18next.t('entity_not_exist')});
     }
@@ -168,7 +208,7 @@ export async function getSubAgentCode(req: Request, res: Response, next: NextFun
     });
     
     // update subAgent record otp codes
-    await pollAgentModel.updateOne({phone: subAgentPhone}, {$set: {otpCodes}});
+    await pollAgentModel.updateOne({_id: subAgentId}, {$set: {otpCodes}}); //
 
     // send code to supervisor
     return { code };

@@ -61,10 +61,10 @@ passport.authenticate('supervisor-cookie', {session: false}),
 /*
 GET a specific sub agent
 */
-router.get('/subagent/:phone',
+router.get('/subagent/:id',
 passport.authenticate('supervisor-cookie', {session: false}),
 (req,res,next)=>{
-    debug('received request to /subagent/:phone...');
+    debug('received request to /subagent/:id...');
     getOneSubAgent(req,res,next)
     .then((data)=>{
         return res.status(200).send(data);
@@ -76,10 +76,10 @@ passport.authenticate('supervisor-cookie', {session: false}),
 /*
 GET an OTP for a sub agent
 */
-router.get('/subagent/:phone/code',
+router.get('/subagent/:id/code',
 passport.authenticate('supervisor-cookie', {session: false}),
 (req,res,next)=>{
-    debug('received request to /subagent/:phone/code...');
+    debug('received request to /subagent/:id/code...');
     getSubAgentCode(req,res,next)
     .then((data)=>{
         return res.status(200).send(data);

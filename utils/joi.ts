@@ -88,7 +88,7 @@ export const postSubAgentsSchema = Joi.object({
 
 // get a specific sub agent
 export const getOneSubAgentSchema = Joi.object({
-    phone
+    id: Joi.string().alphanum().max(30)
 });
 
 
