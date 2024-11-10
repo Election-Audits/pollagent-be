@@ -110,3 +110,22 @@ export async function assignAgentElectoralArea(req: Request, res: Response, next
     await pollAgentModel.updateOne(filter, {$set: updateFields});
 }
 
+
+/**
+ * 
+ * @param req 
+ * @param res 
+ * @param next 
+ */
+export async function getAgentElectoralAreas(req: Request, res: Response, next: NextFunction) {
+    // for lowest electoral level, saved in pollStations nested object, for others saved in electoralAreaId
+    let pollStations = req.user?.pollStations;
+    let electAreaIds = [];
+    if (pollStations) electAreaIds = Object.keys(pollStations);
+    else electAreaIds = [req.user?.electoralAreaId];
+    
+    // query ElectoralAreas collection for data
+    let filter = {_id: {$in: electAreaIds}};
+    let electAreas = await electoralAreaModel.find(filter);
+    return electAreas;
+}

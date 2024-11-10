@@ -28,6 +28,9 @@ declare namespace Express {
         electoralLevel: string,
         supervisorId: string,
         partyId: string,
-        candidateId: string
+        candidateId: string,
+        pollStations: object,
+        electoralAreaId: string,
+        electoralAreaName: string
     }
 }

@@ -133,7 +133,22 @@ export async function getSubAgents(req: Request, res: Response, next: NextFuncti
     // get personal data of subAgents
     let filter = {_id: {$in: subAgentIds}}; //{phone: {$in: subPhones}};
     let projection = {surname: 1, otherNames: 1, phone: 1, email: 1, electoralAreaName: 1};
-    let subAgentsRet = await pollAgentModel.find(filter, projection);
+    let subAgentsRet = <{[key: string]: any}[]> (await pollAgentModel.find(filter, projection));
+    //subAgentsRet = subAgentsRet as {[key: string]: any}[];
+    // let retData = subAgentsRet.map((agent)=>{
+    //     debug('hasSignedUp: ', (agent.emailConfirmed==true || agent.phoneConfirmed==true));
+    //     agent.hasSignedUp = (agent.emailConfirmed==true || agent.phoneConfirmed==true);
+    //     return agent;
+    // });
+    // add hasSignedUp to each agent
+    for (let i=0; i<subAgentsRet.length; i++) { // for of
+        let agent = subAgentsRet[i];
+        // debug(`i: ${i}, hasSignedUp: ${(agent.emailConfirmed==true || agent.phoneConfirmed==true)}`);
+        agent.hasSignedUp = (agent.emailConfirmed==true || agent.phoneConfirmed==true);
+        subAgentsRet[i] = agent;
+    }
+
+    debug('sub agents ret: ', subAgentsRet);
     return subAgentsRet;
 }
 
