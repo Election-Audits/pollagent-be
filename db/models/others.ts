@@ -72,9 +72,11 @@ const resultSchema = new Schema({
     partyId: SchemaTypes.String, // party id of uploader
     candidateId: SchemaTypes.String, // candidate id of uploader
     uploaderId: SchemaTypes.String, // id of poll agent
-    results: new Schema({ // keyed by partyId or candidateId
-
-    }, {strict: false})
+    results: {
+        parties: new Schema({}, {strict: false}), // keyed by partyId
+        candidates: new Schema({}, {strict: false}), // keyed by candidateId (independent candidate)
+        unknowns: new Schema({}, {strict: false}) // unknown candidates manually entered
+    }
 });
 
 resultSchema.index({electionId: 1, partyId: 1, candidateId: 1});

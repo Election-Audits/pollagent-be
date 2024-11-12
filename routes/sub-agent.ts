@@ -42,3 +42,13 @@ passport.authenticate('subagent-cookie', {session: false}),
     .catch((err)=> endpointError(err,req,res));
 });
 
+
+/*
+Upload summary of results
+*/
+router.post('/results/summary',
+passport.authenticate('subagent-cookie', {session: false}),
+(req,res,next)=>{
+    debug('received request to /results/summary');
+    
+});

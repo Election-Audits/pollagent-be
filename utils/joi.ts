@@ -10,6 +10,7 @@ const email = Joi.string().email().min(3).max(30);
 const password = Joi.string().min(6).max(30);
 const phone = Joi.number();
 const code = Joi.string().alphanum().max(20);
+const objectIdStr = Joi.string().alphanum().max(24);
 
 
 // schema for signup endpoint
@@ -103,3 +104,21 @@ export const postResultPicturesSchema = Joi.object({
     electionId: Joi.string().alphanum().max(30),
 });
 
+
+// submit summary of results, in relation to uploaded pictures
+export const postResultSummarySchema = Joi.object({
+    resultId: objectIdStr,
+    results: Joi.array().items(
+        Joi.object({
+            partyId: objectIdStr,
+            candidateId: objectIdStr,
+            numVotes: Joi.number(),
+            name: Joi.string().max(50) // optional. for results of unknown candidate
+        })
+    ),
+    summary: Joi.object({
+        numRegisteredVoters: Joi.number(),
+        totalNumVotes: Joi.number(),
+        numRejectedVotes: Joi.number()
+    })
+});

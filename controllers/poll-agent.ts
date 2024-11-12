@@ -23,6 +23,7 @@ export async function getElectoralAreaChoices(req: Request, res: Response, next:
 
     // ensure that query.pg is a number. 
     let page = getQueryNumberWithDefault(req.query?.pg); // get page from query or start with 1
+    debug(`page: ${page}`);
     let options = { page, limit: pageLimit}; // , projection
 
     // determine whether the user is a sub agent or a supervisor
@@ -32,10 +33,9 @@ export async function getElectoralAreaChoices(req: Request, res: Response, next:
     if (!supervisorId) {
         // a supervisor. Simply return the electoral level values at this user's electoral level
         let filter = {level: req.user?.electoralLevel};
-        let electAreaRet = await electoralAreaModel.paginate(filter, options);
-        return {
-            results: electAreaRet.docs
-        };
+        let electAreaRet = await electoralAreaModel.find(filter); //.paginate(filter, options);
+        debug('electoral area choices: ', electAreaRet);
+        return electAreaRet; // .docs
     }
 
     // user is subAgent
@@ -50,11 +50,10 @@ export async function getElectoralAreaChoices(req: Request, res: Response, next:
 
     // get relevant page of data
     let filter = {parentLevelId: supervisorRec?.electoralAreaId};
-    let electAreaRet = await electoralAreaModel.paginate(filter, options);
+    let electAreaRet = await electoralAreaModel.find(filter); //.paginate(filter, options);
 
-    return {
-        results: electAreaRet.docs
-    };
+    debug('electoral area choices: ', electAreaRet);
+    return electAreaRet; // results:
 }
 
 

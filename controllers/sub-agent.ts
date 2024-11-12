@@ -8,7 +8,7 @@ import { PutObjectCommand  } from "@aws-sdk/client-s3";
 import multer from "multer";
 import { resultModel } from "../db/models/others";
 import { pollAgentModel } from "../db/models/poll-agent";
-import { postResultPicturesSchema } from "../utils/joi";
+import { postResultPicturesSchema, postResultSummarySchema } from "../utils/joi";
 import { saveResultFiles } from "./files";
 import { s3client } from "../utils/misc";
 import * as fs from "fs";
@@ -47,12 +47,13 @@ export async function uploadResultsPictures(req: Request, res: Response, next: N
         electionId: body.electionId,
         partyId: req.user?.partyId,
         candidateId: req.user?.candidateId,
-        uploaderId: req.user?._id
+        uploaderId: req.user?._id,
+        //filesId: req.myFileLastDir
     };
     let createRet = await resultModel.create(preResult);
     let resultId = createRet._id.toString();
 
-    // TODO: generate on objectId before saving files, called filesId ?
+    // TODO: generate on objectId before saving files, called filesId ? (save from using unix time in folder name)
 
     // save files in S3
     // read files in upload folder
@@ -89,4 +90,25 @@ async function readAndPutFile(filePath: string, fileName: string, resultId: stri
         ACL: 'public-read',
         Metadata: {ext}
     }));
+}
+
+
+/**
+ * submit summary of election results, tied to pictures of PSRDs uploaded
+ * @param req 
+ * @param res 
+ * @param next 
+ */
+export async function submitResultsSummary(req: Request, res: Response, next: NextFunction) {
+    // input check with Joi
+    let body = req.body;
+    let { error } = await postResultSummarySchema.validateAsync(body);
+    if (error) {
+        debug('schema error: ', error);
+        return Promise.reject({errMsg: i18next.t("request_body_error")});
+    }
+
+    // update result record with result summary
+    let filter = {_id: body.resultId};
+    // iterate through .results, and divide array into parties, candidates, unknowns
 }
