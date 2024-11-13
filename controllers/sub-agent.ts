@@ -24,6 +24,7 @@ const ignoreFileList = ['.DS_Store']; // files to ignore when reading a director
 
 /**
  * TODO: how to get electionId. Need endpoint to get elections for given electoral area
+ * TODO: ensure the poll agent is mapped to this poll station
  * upload pictures of Polling Station Results Documents (PSRDs)
  * @param req 
  * @param res 
@@ -108,7 +109,21 @@ export async function submitResultsSummary(req: Request, res: Response, next: Ne
         return Promise.reject({errMsg: i18next.t("request_body_error")});
     }
 
-    // update result record with result summary
+    // build result doc. // numRegisteredVoters, totalNumVotes, numRejectedVotes
+    let updateObj: {[key: string]: any} = body.summary; 
+
+    
     let filter = {_id: body.resultId};
     // iterate through .results, and divide array into parties, candidates, unknowns
+    let resultUpdates: {[key: string]: any} = {}; // results.
+    for (let result of body.results) {
+        let key = result.partyId ? `parties.${result.partyId}` : result.candidateId ? 
+        `candidates.${result.candidateId}` : `unknowns${result.name}`;
+        //
+        resultUpdates[key] = result;
+    }
+    updateObj.results = resultUpdates;
+
+    // update result record with result summary
+    await resultModel.updateOne(filter, {$set: updateObj});
 }

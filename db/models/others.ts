@@ -76,7 +76,10 @@ const resultSchema = new Schema({
         parties: new Schema({}, {strict: false}), // keyed by partyId
         candidates: new Schema({}, {strict: false}), // keyed by candidateId (independent candidate)
         unknowns: new Schema({}, {strict: false}) // unknown candidates manually entered
-    }
+    },
+    numRegisteredVoters: SchemaTypes.Number,
+    totalNumVotes: SchemaTypes.Number,
+    numRejectedVotes: SchemaTypes.Number
 });
 
 resultSchema.index({electionId: 1, partyId: 1, candidateId: 1});

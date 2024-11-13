@@ -10,7 +10,8 @@ import cookieParser from "cookie-parser";
 import { secrets , checkSecretsReturned } from "../utils/infisical";
 import { BUILD_TYPES } from "shared-lib/constants";
 import { pollAgentSession } from "../utils/session";
-import { getElectoralAreaChoices, assignAgentElectoralArea, getAgentElectoralAreas } from "../controllers/poll-agent";
+import { getElectoralAreaChoices, assignAgentElectoralArea, getAgentElectoralAreas, getElectoralAreaParentElections } 
+from "../controllers/poll-agent";
 
 
 const router = express.Router();
@@ -64,6 +65,21 @@ passport.authenticate('pollagent-cookie', {session: false}),
 (req,res,next)=>{
     debug('received request to GET /agent/electoral-areas...');
     getAgentElectoralAreas(req,res,next)
+    .then((data)=>{
+        return res.status(200).send(data);
+    })
+    .catch((err)=> endpointError(err,req,res));
+});
+
+
+/*
+GET the upcoming elections for a given electoralArea, and its parents
+*/
+router.get('/electoral-area/:id/parents/elections',
+passport.authenticate('pollagent-cookie', {session: false}),
+(req,res,next)=>{
+    debug('received request to GET /electoral-area/:id/parents/elections...');
+    getElectoralAreaParentElections(req,res,next)
     .then((data)=>{
         return res.status(200).send(data);
     })

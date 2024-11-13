@@ -122,3 +122,9 @@ export const postResultSummarySchema = Joi.object({
         numRejectedVotes: Joi.number()
     })
 });
+
+
+// single input with id field
+export const objectIdSchema = Joi.object({
+    id: objectIdStr
+});

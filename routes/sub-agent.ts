@@ -10,7 +10,7 @@ import cookieParser from "cookie-parser";
 import { secrets , checkSecretsReturned } from "../utils/infisical";
 import { BUILD_TYPES } from "shared-lib/constants";
 import { pollAgentSession } from "../utils/session";
-import { uploadResultsPictures } from "../controllers/sub-agent";
+import { uploadResultsPictures, submitResultsSummary } from "../controllers/sub-agent";
 import multer from "multer";
 
 
@@ -46,9 +46,13 @@ passport.authenticate('subagent-cookie', {session: false}),
 /*
 Upload summary of results
 */
-router.post('/results/summary',
+router.put('/results/summary',
 passport.authenticate('subagent-cookie', {session: false}),
 (req,res,next)=>{
     debug('received request to /results/summary');
-    
+    submitResultsSummary(req,res,next)
+    .then(()=>{
+        return res.status(200).end();
+    })
+    .catch((err)=> endpointError(err,req,res));
 });
