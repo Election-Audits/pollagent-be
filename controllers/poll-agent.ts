@@ -7,6 +7,7 @@ import { Request, Response, NextFunction } from "express";
 import { pollAgentModel } from "../db/models/poll-agent";
 import { electoralAreaModel } from "../db/models/electoral-area";
 import { electionModel } from "../db/models/election";
+// import { stationAgentMapModel } from "../db/models/others";
 import { pageLimit, getQueryNumberWithDefault, getElectoralLevels } from "../utils/misc";
 import { putAgentElectoralAreaSchema, objectIdSchema } from "../utils/joi";
 // import { Types as mongooseTypes } from "mongoose";
@@ -67,7 +68,7 @@ export async function getElectoralAreaChoices(req: Request, res: Response, next:
 export async function assignAgentElectoralArea(req: Request, res: Response, next: NextFunction) {
     // Joi input check
     let body = req.body;
-    let { error } = await putAgentElectoralAreaSchema.validateAsync(body);
+    let { error } = putAgentElectoralAreaSchema.validate(body);
     if (error) {
         debug('schema error: ', error);
         return Promise.reject({errMsg: i18next.t("request_body_error")});
@@ -102,8 +103,22 @@ export async function assignAgentElectoralArea(req: Request, res: Response, next
             id: electoralArea?._id
         }
 
-        // TODO: then update the StationAgentMap
+        // // update the StationAgentMap to map polling station to this agent
+        // let filter = {_id: body.electoralAreaId};
+        // let partyId = req.user?.partyId;
+        // let candidateId = req.user?.candidateId;
+        // let agentMapUpdate = partyId ? `partyAgents.${partyId}` : `candidateAgents.${candidateId}`;
+        // let agentUpdateObject = {$set: {[agentMapUpdate]: req.user?._id.toString()}}
+        // await stationAgentMapModel.updateOne(filter, agentUpdateObject, {upsert: true});
     }
+
+    // update the electoral Area to set partyAgents[id] or candidateAgents[id] to this user
+    let filterElectArea = {_id: body.electoralAreaId};
+    let partyId = req.user?.partyId;
+    let candidateId = req.user?.candidateId;
+    let electAreaUpdate = partyId ? `partyAgents.${partyId}` : `candidateAgents.${candidateId}`;
+    let updateCommand = {$set: {[electAreaUpdate]: req.user?._id.toString()} };
+    await electoralAreaModel.updateOne(filterElectArea, updateCommand);
 
     // update Poll Agent record
     let filter = {_id: req.user?._id}; // mongooseTypes.ObjectId()
@@ -139,7 +154,7 @@ export async function getAgentElectoralAreas(req: Request, res: Response, next: 
  */
 export async function getElectoralAreaParentElections(req: Request, res: Response, next: NextFunction) {
     // Joi input check
-    let { error } = await objectIdSchema.validateAsync(req.params);
+    let { error } = objectIdSchema.validate(req.params);
     if (error) {
         debug('schema error: ', error);
         return Promise.reject({errMsg: i18next.t("request_body_error")});

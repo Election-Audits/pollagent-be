@@ -34,8 +34,8 @@ let emailPassword: string;
 async function setup() {
     await checkSecretsReturned();
     // get emailUser from environment in local build, Infisical in cloud build
-    emailUser = (BUILD == BUILD_TYPES.local) ? emailUserEnv+'' : secrets.EMAIL_USER; // TODO: get from Infisical
-    emailPassword = (BUILD == BUILD_TYPES.local) ? emailPasswordEnv+'' : secrets.EMAIL_PASSWORD; // TODO
+    emailUser = (BUILD == BUILD_TYPES.local) ? emailUserEnv+'' : secrets.EMAIL_USER;
+    emailPassword = (BUILD == BUILD_TYPES.local) ? emailPasswordEnv+'' : secrets.EMAIL_PASSWORD;
     // create email transporter
     transporter = nodemailer.createTransport({
         host: "mail.privateemail.com", //"smtp.ethereal.email",
@@ -52,7 +52,7 @@ setup();
 
 
 /**
- * Signup
+ * Signup. TODO: On signup/login, inform user of need to check email or contact supervisor for OTP
  * @param req 
  * @param res 
  * @param next 
@@ -60,7 +60,7 @@ setup();
 export async function signup(req: Request, res: Response, next: NextFunction) {
     // check inputs
     let body = req.body;
-    let { error } = await signupSchema.validateAsync(body);
+    let { error } = signupSchema.validate(body);
     if (error) {
         debug('schema error: ', error);
         return Promise.reject({errMsg: i18next.t("request_body_error")});
@@ -100,7 +100,8 @@ export async function signup(req: Request, res: Response, next: NextFunction) {
     // hash the password before saving
     body.password = await bcrypt.hash(body.password, 12);
     // Generate OTP. Simpler OTP for subAgents, more complex for supervisors
-    let code = (record.supervisorId) ? randomString({length: 4, type: 'numeric'}) : randomString({length: 6});
+    let otpLength = (record.supervisorId) ? 4 : 6;
+    let code = randomString({length: otpLength, type: 'numeric'});
     let otpCodes_0 = record.otpCodes || [];
     let otpCodes = [...otpCodes_0, {code, createdAtms: Date.now()}];
     // remove otp codes that are too old
@@ -185,7 +186,7 @@ async function signupSupervisor(emailInput: EmailInput, agent: {[key: string]: a
 export async function signupConfirm(req: Request, res: Response, next: NextFunction) {
     // validate inputs with joi
     let body = req.body;
-    let { error } = await signupConfirmSchema.validateAsync(body);
+    let { error } = signupConfirmSchema.validate(body);
     if (error) {
         debug('schema error: ', error);
         return Promise.reject({errMsg: i18next.t("request_body_error")}); // todo printf
@@ -225,7 +226,8 @@ export async function signupConfirm(req: Request, res: Response, next: NextFunct
     }
 
     // At this point, code is equal, and within verification window. Update record
-    let updateFields = email ? { emailConfirmed: true } : { phoneConfirmed: true };
+    let updateFields: {[key: string]: any} = email ? { emailConfirmed: true } : { phoneConfirmed: true };
+    updateFields.fbToken = body.fbToken; // also set firebase token
     await pollAgentModel.updateOne(filter, {$set: updateFields});
     // set cookie for authenticating future requests
     if (email) req.session.email = email;
@@ -251,7 +253,7 @@ export async function signupConfirm(req: Request, res: Response, next: NextFunct
 export async function login(req: Request, res: Response, next: NextFunction) {
     // validate inputs with joi
     let body = req.body;
-    let { error } = await loginSchema.validateAsync(body);
+    let { error } = loginSchema.validate(body);
     if (error) {
         debug('schema error: ', error);
         return Promise.reject({errMsg: i18next.t("request_body_error")});
@@ -280,7 +282,8 @@ export async function login(req: Request, res: Response, next: NextFunction) {
     }
 
     // Account exists and password correct. Create OTP to be sent by email or to supervisor
-    let code = (record.supervisorId) ? randomString({length: 4, type: 'numeric'}) : randomString({length: 6});
+    let otpLength = (record.supervisorId) ? 4 : 6;
+    let code = randomString({length: otpLength, type: 'numeric'});
     let otpCodes_0 = record.otpCodes || [];
     let otpCodes = [...otpCodes_0, {code, createdAtms: Date.now()}];
     // remove otp codes that are too old
@@ -292,8 +295,8 @@ export async function login(req: Request, res: Response, next: NextFunction) {
     await pollAgentModel.updateOne(filter, {$set: {otpCodes}});
     debug(`code: ${code}`);
 
-    // if supervisor, will send OTP by email, otherwise for subAgent, the OTP would be send to the supervisor's app to
-    // be forwarded to the subAgent by text
+    // if logging in with email, will send OTP by email, otherwise for subAgent, the OTP would be send to the 
+    // supervisor's app to be forwarded to the subAgent by text
     if (record.supervisorId) { // a subAgent
         await otpSubAgent(record, code);
     } else { // a supervisor/ regional/ country coordinator
@@ -359,7 +362,7 @@ async function otpSupervisor(emailInput: EmailInput) {
 export async function loginConfirm(req: Request, res: Response, next: NextFunction) {
     let body = req.body;
     // validate inputs with joi
-    let { error } = await loginConfirmSchema.validateAsync(body);
+    let { error } = loginConfirmSchema.validate(body);
     if (error) {
         debug('schema error: ', error);
         return Promise.reject({errMsg: i18next.t("request_body_error")});
@@ -397,7 +400,10 @@ export async function loginConfirm(req: Request, res: Response, next: NextFuncti
         debug(`code has expired: deltaT is ${deltaT/1000} seconds`);
         return Promise.reject({errMsg: i18next.t("expired_code")});
     }
-    
+
+    // update fbToken
+    await pollAgentModel.updateOne(filter, {$set: {fbToken: body.fbToken}});
+
     // set cookie for authenticating future requests
     if (email) req.session.email = email;
     if (phone) req.session.phone = phone;
@@ -421,7 +427,7 @@ export async function loginConfirm(req: Request, res: Response, next: NextFuncti
 export async function resendCode(req: Request, res: Response, next: NextFunction) {
     let body = req.body;
     // validate input
-    let { error } = await resendCodeSchema.validateAsync(body);
+    let { error } = resendCodeSchema.validate(body);
     if (error) {
         debug('schema error: ', error);
         return Promise.reject({errMsg: i18next.t("request_body_error")});
@@ -456,7 +462,8 @@ export async function resendCode(req: Request, res: Response, next: NextFunction
     }
 
     // Create and save OTP
-    let code = (record.supervisorId) ? randomString({length: 4, type: 'numeric'}) : randomString({length: 6});
+    let otpLength = (record.supervisorId) ? 4 : 6;
+    let code = randomString({length: otpLength, type: 'numeric'});
     //
     let otpCodes = [...otpCodes_0, {code, createdAtms: Date.now()}];
     // remove otp codes that are too old
@@ -492,7 +499,7 @@ export async function resendCode(req: Request, res: Response, next: NextFunction
 export async function passwordReset(req: Request, res: Response, next: NextFunction) {
     let body = req.body;
     // validate input with Joi
-    let { error } = await passwordResetSchema.validateAsync(body);
+    let { error } = passwordResetSchema.validate(body);
     if (error) {
         debug('schema error: ', error);
         return Promise.reject({errMsg: i18next.t("request_body_error")});
@@ -516,7 +523,8 @@ export async function passwordReset(req: Request, res: Response, next: NextFunct
     }
 
     // create an OTP code and save
-    let code = (record.supervisorId) ? randomString({length: 4, type: 'numeric'}) : randomString({length: 6});
+    let otpLength = (record.supervisorId) ? 4 : 6;
+    let code = randomString({length: otpLength, type: 'numeric'});
     let otpCodes_0 = record.otpCodes || [];
     let otpCodes = [...otpCodes_0, {code, createdAtms: Date.now()}];
     debug(`code: ${code}`);
@@ -552,7 +560,7 @@ export async function passwordReset(req: Request, res: Response, next: NextFunct
 export async function passwordResetConfirm(req: Request, res: Response, next: NextFunction) {
     let body = req.body;
     // validate input with Joi
-    let { error } = await passwordResetConfirmSchema.validateAsync(body);
+    let { error } = passwordResetConfirmSchema.validate(body);
     if (error) {
         debug('schema error: ', error);
         return Promise.reject({errMsg: i18next.t("request_body_error")});
@@ -606,7 +614,7 @@ export async function passwordResetConfirm(req: Request, res: Response, next: Ne
 export async function updateProfile(req: Request, res: Response, next: NextFunction) {
     let body = req.body;
     // validate input
-    let { error } = await updateProfileSchema.validateAsync(body);
+    let { error } = updateProfileSchema.validate(body);
     if (error) {
         debug('schema error: ', error);
         return Promise.reject({errMsg: i18next.t("request_body_error")});

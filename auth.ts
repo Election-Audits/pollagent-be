@@ -15,7 +15,7 @@ import { getElectoralLevels } from "./utils/misc";
 const cookieName = 'pollagent';
 
 /*
-Supervisor cookie. TODO: use electoral levels instead of email/phone
+Supervisor cookie
 */
 passport.use('supervisor-cookie',
 new CookieStrategy({
@@ -26,27 +26,37 @@ new CookieStrategy({
 async (req: express.Request, token: string | undefined, cb: Function)=>{
     try {
         debug('cookie strategy cb. email: ', req.session.email);
+        let phone = req.session.phone;
         let email = req.session.email;
-        if (!email) {
-            debug('unauthorized. no cookie or email/phone');
-            return cb(null, false, 'unauthorized. no cookie or email/phone');
+
+        // access poll Agent record by email or phone if defined
+        let filterArray = [];
+        if (email) filterArray.push({email});
+        if (phone) filterArray.push({phone});
+        if (!phone && !email) { // prevent null query
+            debug('unauthorized. either no cookie or phone/email');
+            return cb(null, false, 'unauthorized. no cookie or phone/email');
         }
-        let pollAgent = await pollAgentModel.findOne({email}, {password: 0});
-        
-        // ensure user has completed signup
-        if (!pollAgent?.emailConfirmed) { //  NB: supervisor signup by email only
-            debug("account doesn't exist, email not confirmed");
+
+        let filter = { $or: filterArray };
+        let pollAgent = await pollAgentModel.findOne(filter);
+        // ensure user completed signup
+        if (!pollAgent?.emailConfirmed && !pollAgent?.phoneConfirmed) {
+            debug("Account doesn't exist. phone/email not confirmed");
             return cb(null, false, {errMsg: i18next.t("account_not_exist")});
         }
-        
-        // ensure user is a supervisor: electoralLevel in top two levels (country, region)
+
+        // ensure user is a supervisor: electoralLevel not the lowest
         let myElectLevel = pollAgent.electoralLevel;
         let electoralLevels = getElectoralLevels();
-        debug('electoralLevels: ', electoralLevels);
-        if (electoralLevels[0] !== myElectLevel && electoralLevels[1] !== myElectLevel) {
+        let ind = electoralLevels.findIndex((v)=> v==myElectLevel );
+        // reject: ind == 0 (country), ind==1 (region). Also ind==-1 (electoral level not found)
+        debug(`electoral level ind: ${ind}`);
+        if (ind == electoralLevels.length-1) { // ind < 2
             debug("user doesn't have right electoral level permission");
             return cb(null, false, {errMsg: i18next.t("no_elect_level_permission")});
         }
+
         //
         return cb(null, pollAgent);
     } catch (exc) {
@@ -58,7 +68,7 @@ async (req: express.Request, token: string | undefined, cb: Function)=>{
 
 
 /*
-SubAgent cookie
+SubAgent cookie. Meant exclusively for lowest level, can upload polling results
 */
 passport.use('subagent-cookie',
 new CookieStrategy({
@@ -95,7 +105,7 @@ async (req: express.Request, token: string | undefined, cb: Function)=>{
         let ind = electoralLevels.findIndex((v)=> v==myElectLevel );
         // reject: ind == 0 (country), ind==1 (region). Also ind==-1 (electoral level not found)
         debug(`electoral level ind: ${ind}`);
-        if (ind < 2) {
+        if (ind != electoralLevels.length-1) { // ind < 2
             debug("user doesn't have right electoral level permission");
             return cb(null, false, {errMsg: i18next.t("no_elect_level_permission")});
         }

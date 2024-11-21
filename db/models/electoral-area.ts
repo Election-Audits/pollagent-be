@@ -51,7 +51,9 @@ const electoralAreaSchema = new Schema({
         lon: SchemaTypes.Number,
         lat: SchemaTypes.Number
     },
-    locationDetails: SchemaTypes.String
+    locationDetails: SchemaTypes.String,
+    partyAgents: new Schema({}, {strict: false}), // agents of political parties
+    candidateAgents: new Schema({}, {strict: false}) // agents of independent candidates
 });
 
 // create a text index to enable search by text

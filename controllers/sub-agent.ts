@@ -11,6 +11,7 @@ import { pollAgentModel } from "../db/models/poll-agent";
 import { postResultPicturesSchema, postResultSummarySchema } from "../utils/joi";
 import { saveResultFiles } from "./files";
 import { s3client } from "../utils/misc";
+import { RESULT_BUCKET } from "../utils/env";
 import * as fs from "fs";
 import * as util from "util";
 import * as path from "path";
@@ -23,8 +24,6 @@ const ignoreFileList = ['.DS_Store']; // files to ignore when reading a director
 
 
 /**
- * TODO: how to get electionId. Need endpoint to get elections for given electoral area
- * TODO: ensure the poll agent is mapped to this poll station
  * upload pictures of Polling Station Results Documents (PSRDs)
  * @param req 
  * @param res 
@@ -36,10 +35,15 @@ export async function uploadResultsPictures(req: Request, res: Response, next: N
 
     // input check with Joi
     let body = req.body;
-    let { error } = await postResultPicturesSchema.validateAsync(body);
+    let { error } = postResultPicturesSchema.validate(body);
     if (error) {
         debug('schema error: ', error);
         return Promise.reject({errMsg: i18next.t("request_body_error")});
+    }
+
+    // ensure poll agent is mapped to this poll station
+    if (req.user?.electoralAreaId != body.electoralAreaId) {
+        return Promise.reject({errmsg: i18next.t("not_assigned_elect_area")});
     }
 
     // create a new record, obtain the id to associate with upload, and send to poll agent
@@ -85,7 +89,7 @@ async function readAndPutFile(filePath: string, fileName: string, resultId: stri
 
     //
     await s3client.send(new PutObjectCommand({
-        Bucket: 'test', // TODO: use election group name like 'ghana-2024'
+        Bucket: RESULT_BUCKET, // election group name e.g 'ghana-2024'
         Key: resultId +'_'+ fileNamePrefix,
         Body: fileData,
         ACL: 'public-read',
@@ -103,7 +107,7 @@ async function readAndPutFile(filePath: string, fileName: string, resultId: stri
 export async function submitResultsSummary(req: Request, res: Response, next: NextFunction) {
     // input check with Joi
     let body = req.body;
-    let { error } = await postResultSummarySchema.validateAsync(body);
+    let { error } = postResultSummarySchema.validate(body);
     if (error) {
         debug('schema error: ', error);
         return Promise.reject({errMsg: i18next.t("request_body_error")});

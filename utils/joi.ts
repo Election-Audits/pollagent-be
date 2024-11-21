@@ -18,16 +18,18 @@ export const signupSchema = Joi.object({
     email,
     phone,
     password: password.required()
-});
-// TODO: apply .or for email, phone
+})
+.or('email','phone');
 
 
 // schema for signupConfirm endpoint
 export const signupConfirmSchema = Joi.object({
     email,
     phone,
-    code: code.required()
-});
+    code: code.required(),
+    fbToken: Joi.string().required()
+})
+.or('email','phone');
 
 
 // schema for login endpoint
@@ -35,27 +37,32 @@ export const loginSchema = Joi.object({
     email,
     phone,
     password: password.required()
-});
+})
+.or('email','phone');
 
 
 // schema for loginConfirm endpoint
 export const loginConfirmSchema = Joi.object({
     email,
     phone,
-    code: code.required()
-});
+    code: code.required(),
+    fbToken: Joi.string().required()
+})
+.or('email','phone');
 
 // resend code schema
 export const resendCodeSchema = Joi.object({
     email,
     phone
-});
+})
+.or('email','phone');
 
 // schema for password reset
 export const passwordResetSchema = Joi.object({
     email,
     phone,
-});
+})
+.or('email','phone');
 
 
 // schema for password reset confirm
@@ -64,7 +71,8 @@ export const passwordResetConfirmSchema = Joi.object({
     phone,
     password: password.required(),
     code: code.required()
-});
+})
+.or('email','phone');
 
 
 // update profile schema
@@ -101,7 +109,8 @@ export const putAgentElectoralAreaSchema = Joi.object({
 
 // upload pictures of polling station results
 export const postResultPicturesSchema = Joi.object({
-    electionId: Joi.string().alphanum().max(30),
+    electionId: objectIdStr.required(),
+    electoralAreaId: objectIdStr.required()
 });
 
 
