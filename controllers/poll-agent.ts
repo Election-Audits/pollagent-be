@@ -134,14 +134,21 @@ export async function assignAgentElectoralArea(req: Request, res: Response, next
  */
 export async function getAgentElectoralAreas(req: Request, res: Response, next: NextFunction) {
     // for lowest electoral level, saved in pollStations nested object, for others saved in electoralAreaId
-    let pollStations = req.user?.pollStations;
+    let pollStations = req.user?.pollStations; // debug('pollStations: ', pollStations);
     let electAreaIds = [];
-    if (pollStations) electAreaIds = Object.keys(pollStations);
-    else electAreaIds = [req.user?.electoralAreaId];
+    if (pollStations) {
+        electAreaIds = Object.keys(pollStations);
+        // contains weird keys like $__parent, $isNew,...
+        electAreaIds = electAreaIds.filter((id)=> id.length == 24); // mongo object id have length 24
+    } else {
+        electAreaIds = [req.user?.electoralAreaId];
+    }
+    debug('electAreaIds: ', electAreaIds);
     
     // query ElectoralAreas collection for data
     let filter = {_id: {$in: electAreaIds}};
-    let electAreas = await electoralAreaModel.find(filter);
+    let projection = {partyAgents: 0, candidateAgents: 0};
+    let electAreas = await electoralAreaModel.find(filter, projection);
     return electAreas;
 }
 
@@ -162,26 +169,29 @@ export async function getElectoralAreaParentElections(req: Request, res: Respons
 
     // get current electoral area record
     let electAreaId_0 = req.params.id;
-    let electoralArea = await electoralAreaModel.findById(electAreaId_0);
+    let electoralArea: {[key: string]: any} | null = await electoralAreaModel.findById(electAreaId_0);
 
     // step through electoral areas to find all parents
     let electoralLevels = getElectoralLevels();
     let startLevelInd = electoralLevels.findIndex((val)=> val == electoralArea?.level );
-    let endLevelInd = electoralLevels.length - 1;
+    let endLevelInd = 0; // end at highest level/country
+    // debug(`startLevelInd: ${startLevelInd}, endLevelInd: ${endLevelInd}`);
     // get id of electoral area, and use to search Elections collection
     let electoralAreaIds = [electAreaId_0]; // set current electoral area id electoralArea_0?._id
     let curElectAreaId = electAreaId_0;
-    // ---start searching 1 level up---? since already saved current electoral area id
-    // end search at endLevelInd-1 since querying parentLevelId
-    for (let levelInd= startLevelInd; levelInd<= endLevelInd-1; levelInd++) {
-        let electArea = await electoralAreaModel.findById(electoralArea?.parentLevelId); // curElectAreaId
-        curElectAreaId = electArea?._id+'';
-        electoralAreaIds.push(curElectAreaId);
+
+    // NB: startLevelInd > endLevelInd, searching from right to left (child to parent)
+    for (let levelInd= startLevelInd; levelInd>= endLevelInd; levelInd--) {
+        let electArea : {[key: string]: any} | null = await electoralAreaModel.findById(electoralArea?.parentLevelId);
+        curElectAreaId = electArea?._id.toString(); //debug('curElectAreaId: ', curElectAreaId);
+        if (curElectAreaId) electoralAreaIds.push(curElectAreaId);
+        electoralArea = electArea; // set to parent electArea
     }
     debug('electoral area and parent ids: ', electoralAreaIds);
 
     // search Elections collection for electoralAreaId
     let filter = {electoralAreaId: {$in: electoralAreaIds}};
     let elections = await electionModel.find(filter);
+    // debug('elections: ', elections);
     return elections;
 }

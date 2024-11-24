@@ -53,7 +53,8 @@ const pollAgentSchema = new Schema({
     phoneConfirmed: SchemaTypes.Boolean,
     //
     supervisorId: SchemaTypes.String, // id of supervisor
-    subAgentsRef: SchemaTypes.String, // reference to subAgents/supervisees document
+    // NB: subAgentsRef (not needed since can query Supervisors collection by agentId)
+    // subAgentsRef: SchemaTypes.String, // reference to subAgents/supervisees document. 
     //
     electoralLevel: SchemaTypes.String,
     electoralAreaId: SchemaTypes.String,
@@ -63,9 +64,7 @@ const pollAgentSchema = new Schema({
     candidateId: SchemaTypes.String, // for independent candidates without parties
     country: SchemaTypes.String,
     // pollStations keyed by pollStation id and with value {name, id}
-    pollStations: new Schema({
-
-    }, {strict: false})
+    pollStations: new Schema({}, {strict: false})
 });
 
 // pollAgentSchema.index({email: 1}, 
@@ -92,7 +91,7 @@ interface PollAgentData {
     subAgentsRef: string, // reference to subAgents/supervisees document
     //
     electoralLevel: string,
-    electoralAreaId: string, // TODO: allow multiple?
+    electoralAreaId: string, // NB: only lowest level agent can have multiple in pollStations field
     electoralAreaName: string,
     //
     partyId: string,

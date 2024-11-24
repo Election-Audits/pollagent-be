@@ -37,10 +37,11 @@ async function setup() {
     let connectFunctions = [];
     for (let db of dbs) {
         let url = `${protocol}://${mongoCreds}${mongoUrlBase}/${db}?retryWrites=true&w=majority&appName=Cluster0`; //   
-        // debug('db to connect: ', db);
+        // debug('url: ', url); // debug('db to connect: ', db);
         connectFunctions.push(mongoose.createConnection(url));
     }
     let connectRets = await Promise.all(connectFunctions);
+    debug('successfully connected to db');
     // save in database connections object
     for (let ind=0; ind<dbs.length; ind++) {
         databaseConns[dbs[ind]] = connectRets[ind];

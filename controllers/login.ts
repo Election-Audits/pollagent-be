@@ -9,7 +9,7 @@ import { supervisorModel } from "../db/models/others";
 import i18next from "i18next";
 import * as bcrypt from "bcrypt";
 import { secrets ,checkSecretsReturned } from "../utils/infisical";
-import { pollAgentCookieMaxAge, verifyWindow } from "../utils/misc";
+import { pollAgentCookieMaxAge, verifyWindow, getElectoralLevels } from "../utils/misc";
 import { signupSchema, signupConfirmSchema, loginSchema, loginConfirmSchema, passwordResetSchema, 
 passwordResetConfirmSchema, resendCodeSchema, updateProfileSchema } from "../utils/joi";
 import { Request, Response, NextFunction } from "express";
@@ -86,12 +86,6 @@ export async function signup(req: Request, res: Response, next: NextFunction) {
     if (record.emailConfirmed || record.phoneConfirmed) {
         return Promise.reject({errMsg: i18next.t("account_exists")});
     }
-    // If supervisor, ensure email provided. If subAgent, ensure phone provided
-    if (record?.supervisorId) { // subAgent. use phone
-        if (!body.phone) return Promise.reject({errMsg: i18next.t("request_body_error")});
-    } else { // supervisor. use email
-        if (!body.email) return Promise.reject({errMsg: i18next.t("request_body_error")});
-    }
 
     // update record with body fields, then send confirmation
     // admin preapproved using email or phone, thus not updating field that already exists
@@ -114,19 +108,26 @@ export async function signup(req: Request, res: Response, next: NextFunction) {
     await pollAgentModel.updateOne(filter, {$set: body});
     debug(`code: ${code}`);
 
-    // Send OTP: There are two ways to send an OTP after generation. Agents in the highest tiers (country/region) are
-    // typically added by staff of Election Audits, and supervisorId field is not set. Send OTP by email. Otherwise, 
-    // OTP would be delivered to the supervisor, to be forwarded to the agent signing up
-    if (record.supervisorId) { // a subAgent
-        await signupSubAgent(record, code);
-    } else { // a supervisor/ regional/ country coordinator
+    // An agent can be both a supervisor and a sub agent if in middle of hierarchy
+    if (record.supervisorId) await signupSubAgent(record, code); // subagent
+    // check if supervisor and signup as supervisor
+    let electoralLevels = getElectoralLevels();
+    let ind = electoralLevels.findIndex((v)=> v== record.electoralLevel );
+    if (ind < electoralLevels.length-1) { // this agent is also a supervisor
+        let agent = {id: record._id};
+        await signupSupervisor(agent);
+    }
+
+    // send OTP by email or phone
+    if (email) {
         let emailInput = {
             recipient: email,
             subject: 'Election Audits',
             text: i18next.t("otp_message") + code, // plain text body
         };
-        let agent = {id: record._id};
-        await signupSupervisor(emailInput, agent);
+        await sendEmail(emailInput);
+    } else {
+        // TODO: send push notification to supervisor
     }
 }
 
@@ -139,8 +140,8 @@ export async function signup(req: Request, res: Response, next: NextFunction) {
 async function signupSubAgent(myData: {[key: string]: any}, code: string) {
     // also write the code in the supervisors table so can be accessed
     let filter = {agentId: myData.supervisorId};
-    let field = `subAgents.${myData.phone}`;
-    let update = {[field]: code};
+    let field = `subAgents.${myData._id.toString()}`;
+    let update = {[field]: true};
     await supervisorModel.updateOne(filter, {$set: update});
     // TODO: send a push notification to the supervisor that a subAgent is attempting to signup
 
@@ -153,10 +154,19 @@ async function signupSubAgent(myData: {[key: string]: any}, code: string) {
  * @param agent 
  * @returns 
  */
-async function signupSupervisor(emailInput: EmailInput, agent: {[key: string]: any}) {
+async function signupSupervisor(agent: {[key: string]: any}) {
     // For a supervisor, create a record in the Supervisors collection
     let updateFields = {subAgents: {}};
     await supervisorModel.updateOne({agentId: agent.id}, {$set: updateFields}, {upsert: true});
+
+}
+
+/**
+ * 
+ * @param emailInput 
+ * @returns 
+ */
+async function sendEmail(emailInput: EmailInput) {
     // only send email when in cloud build
     if (BUILD == BUILD_TYPES.local) return;
     // send the OTP by email to the supervisor

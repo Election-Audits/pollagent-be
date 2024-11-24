@@ -53,6 +53,7 @@ export async function postSubAgents(req: Request, res: Response, next: NextFunct
     //
     let retIds = await Promise.all(dbFuncs); // returns array of _ids
 
+
     // add subagents to Supervisors collection
     // iterate body.people and build objects for updating Supervisors
     let subAgentsObj: {[key: string]: boolean} = {};
@@ -62,7 +63,8 @@ export async function postSubAgents(req: Request, res: Response, next: NextFunct
     }
 
     //
-    let filter = { agentId: req.user?._id };
+    let filter = { agentId: req.user?._id.toString() };
+    debug('filter: ', filter); debug('subAgentsObj: ', subAgentsObj);
     await supervisorModel.updateOne(filter, {$set: subAgentsObj}); // add subAgents
 }
 
@@ -111,6 +113,7 @@ electoralLevel: string): Promise<string> {
         // debug('insertRet: ', insertRet);
         subAgentId = insertRet._id+'';
     }
+    debug('subAgentId: ', subAgentId);
 
     return subAgentId; // return id of account created/updated
 }
