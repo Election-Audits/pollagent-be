@@ -658,3 +658,15 @@ export async function updateProfile(req: Request, res: Response, next: NextFunct
     return retData;
 }
 
+
+/**
+ * Deactivate account
+ * @param req 
+ * @param res 
+ * @param next 
+ */
+export async function deactivate(req: Request, res: Response, next: NextFunction) {
+    let filter = {_id: req.user?._id};
+    await pollAgentModel.deleteOne(filter);
+    // move sub agents, notify super and sub agents
+}
