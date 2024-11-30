@@ -17,6 +17,8 @@ async function setup() {
         electoralLevelsModel = databaseConns[db].model("ElectoralLevels", electoralLevelsSchema, "ElectoralLevels");
         supervisorModel = databaseConns[db].model("Supervisors", supervisorSchema, "Supervisors");
         resultModel = databaseConns[db].model("Results", resultSchema, "Results");
+        partyModel = databaseConns[db].model("Party", partySchema, "Parties");
+        candidateModel = databaseConns[db].model("Candidate", candidateSchema, "Candidates");
     }
 }
 
@@ -89,3 +91,56 @@ export let resultModel = mongoose.model("Results", resultSchema, "Results");
 
 // --------------------
 
+
+// // -------------------- StationAgentMap Schema
+// const stationAgentMapSchema = new Schema({
+//     stationId: SchemaTypes.String,
+//     partyAgents: new Schema({}, {strict: false}), // agents of political parties
+//     candidateAgents: new Schema({}, {strict: false}) // agents of independent candidates
+// });
+
+// stationAgentMapSchema.index({stationId: 1});
+
+// // init model. Will be updated upon db connection in 'setup'
+// export let stationAgentMapModel = mongoose.model("StationAgentMap", stationAgentMapSchema, "StationAgentMap");
+// // --------------------
+
+
+// -------------------- Party Schema
+const partySchema = new Schema({
+    name: SchemaTypes.String,
+    initials: SchemaTypes.String
+});
+
+partySchema.index({initials: 1}, {unique: true});
+
+// init model. Will be updated upon db connections in 'setup'
+export let partyModel = mongoose.model("Party", partySchema, "Parties");
+// --------------------
+
+
+// -------------------- Candidate Schema
+const candidateSchema = new Schema({
+    electionId: SchemaTypes.String,
+    partyId: SchemaTypes.String,
+    // NB: no candidateId, it's basically _id
+    surname: SchemaTypes.String,
+    otherNames: SchemaTypes.String,
+    title: SchemaTypes.String
+});
+
+// create a unique index for party
+candidateSchema.index({electionId: 1, partyId: 1},
+    {
+        unique: true, //sparse: true, 
+        partialFilterExpression: { partyId: {$type: 'string', $ne: ''} }
+    }
+);
+
+candidateSchema.index({electionId: 1, surname: 1, otherNames: 1}, {unique: true});
+
+
+// init model. Will be updated upon db connections in 'setup'
+export let candidateModel = mongoose.model("Candidate", candidateSchema, "Candidates");
+
+// --------------------

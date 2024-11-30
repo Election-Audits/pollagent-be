@@ -7,9 +7,10 @@ import { Request, Response, NextFunction } from "express";
 import { pollAgentModel } from "../db/models/poll-agent";
 import { electoralAreaModel } from "../db/models/electoral-area";
 import { electionModel } from "../db/models/election";
+import { candidateModel, partyModel } from "../db/models/others";
 // import { stationAgentMapModel } from "../db/models/others";
 import { pageLimit, getQueryNumberWithDefault, getElectoralLevels } from "../utils/misc";
-import { putAgentElectoralAreaSchema, objectIdSchema } from "../utils/joi";
+import { putAgentElectoralAreaSchema, objectIdSchema, getCandidatesSchema } from "../utils/joi";
 // import { Types as mongooseTypes } from "mongoose";
 
 
@@ -194,4 +195,54 @@ export async function getElectoralAreaParentElections(req: Request, res: Respons
     let elections = await electionModel.find(filter);
     // debug('elections: ', elections);
     return elections;
+}
+
+
+/**
+ * Get candidates of an election
+ * @param req 
+ * @param res 
+ * @param next 
+ */
+export async function getCandidates(req: Request, res: Response, next: NextFunction) {
+    // Joi input check for query
+    let { error } = await getCandidatesSchema.validateAsync(req.query);
+    if (error) {
+        debug('schema error: ', error);
+        return Promise.reject({errMsg: i18next.t("request_body_error")});
+    }
+
+    // get candidates. use electionId and filter query params
+    let { electionId, filter } = req.query;
+    let filterDb: {[key: string]: any} = { electionId };
+    if (filter == 'ind') filterDb.partyId = "";
+    let candidates = await candidateModel.find(filterDb);
+    candidates = candidates.map((x: {[key: string]: any})=> x._doc); // find returning object with {_doc, $isNew, ...}
+
+    // Ensure all expected fields in Dart are populated: partyName, partyInitials
+    let getFuncs = [];
+    for (let candidate of candidates) {
+        //let noPartyData = {partyId: '', partyInitials: '', partyName: ''}; // party data for independent candidates
+        let noPartyData = {_id: '', name: '', initials: ''};
+        let func = candidate.partyId ? partyModel.findById(candidate.partyId) : Promise.resolve(noPartyData);
+        getFuncs.push(func);
+    }
+
+    // combine party data with candiate data
+    let partyRet = await Promise.all(getFuncs);
+    let retData = [];
+    for (let ind=0; ind<candidates.length; ind++) {
+        let partyInfo  = partyRet[ind]; //?._doc || partyRet[ind];
+        let party = {
+            partyId: partyInfo?._id ? partyInfo?._id.toString() : '',
+            partyInitials: partyInfo?.initials,
+            partyName: partyInfo?.name
+        };
+        let candidate = candidates[ind];
+        let data = {...candidate, ...party};
+        retData.push(data);
+    }
+
+    debug('candidates: ', retData);
+    return retData; // [ {surname, otherNames, partyId, partyName, partyInitials}, ...]
 }
