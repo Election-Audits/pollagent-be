@@ -9,7 +9,7 @@ import { supervisorModel } from "../db/models/others";
 import i18next from "i18next";
 import * as bcrypt from "bcrypt";
 import { secrets ,checkSecretsReturned } from "../utils/infisical";
-import { pollAgentCookieMaxAge } from "../utils/misc";
+import { pollAgentCookieMaxAge, verifyWindow, getElectoralLevels } from "../utils/misc";
 import { signupSchema, signupConfirmSchema, loginSchema, loginConfirmSchema, passwordResetSchema, 
 passwordResetConfirmSchema, resendCodeSchema, updateProfileSchema } from "../utils/joi";
 import { Request, Response, NextFunction } from "express";
@@ -21,8 +21,6 @@ import('crypto-random-string').then((importRet)=>{
     randomString = importRet.default;
 });
 
-// time limit to confirm code for 2FA 
-const verifyWindow = 30*60*1000; // ms. (30 minutes) 30*60*1000
 
 const cookieOptions = {
     httpOnly: true, signed: true, maxAge: pollAgentCookieMaxAge
@@ -36,8 +34,8 @@ let emailPassword: string;
 async function setup() {
     await checkSecretsReturned();
     // get emailUser from environment in local build, Infisical in cloud build
-    emailUser = (BUILD == BUILD_TYPES.local) ? emailUserEnv+'' : secrets.EMAIL_USER; // TODO: get from Infisical
-    emailPassword = (BUILD == BUILD_TYPES.local) ? emailPasswordEnv+'' : secrets.EMAIL_PASSWORD; // TODO
+    emailUser = (BUILD == BUILD_TYPES.local) ? emailUserEnv+'' : secrets.EMAIL_USER;
+    emailPassword = (BUILD == BUILD_TYPES.local) ? emailPasswordEnv+'' : secrets.EMAIL_PASSWORD;
     // create email transporter
     transporter = nodemailer.createTransport({
         host: "mail.privateemail.com", //"smtp.ethereal.email",
@@ -54,7 +52,7 @@ setup();
 
 
 /**
- * Signup
+ * Signup. TODO: On signup/login, inform user of need to check email or contact supervisor for OTP
  * @param req 
  * @param res 
  * @param next 
@@ -62,7 +60,7 @@ setup();
 export async function signup(req: Request, res: Response, next: NextFunction) {
     // check inputs
     let body = req.body;
-    let { error } = await signupSchema.validateAsync(body);
+    let { error } = signupSchema.validate(body);
     if (error) {
         debug('schema error: ', error);
         return Promise.reject({errMsg: i18next.t("request_body_error")});
@@ -88,12 +86,6 @@ export async function signup(req: Request, res: Response, next: NextFunction) {
     if (record.emailConfirmed || record.phoneConfirmed) {
         return Promise.reject({errMsg: i18next.t("account_exists")});
     }
-    // If supervisor, ensure email provided. If subAgent, ensure phone provided
-    if (record?.supervisorId) { // subAgent. use phone
-        if (!body.phone) return Promise.reject({errMsg: i18next.t("request_body_error")});
-    } else { // supervisor. use email
-        if (!body.email) return Promise.reject({errMsg: i18next.t("request_body_error")});
-    }
 
     // update record with body fields, then send confirmation
     // admin preapproved using email or phone, thus not updating field that already exists
@@ -102,7 +94,8 @@ export async function signup(req: Request, res: Response, next: NextFunction) {
     // hash the password before saving
     body.password = await bcrypt.hash(body.password, 12);
     // Generate OTP. Simpler OTP for subAgents, more complex for supervisors
-    let code = (record.supervisorId) ? randomString({length: 4, type: 'numeric'}) : randomString({length: 6});
+    let otpLength = (record.supervisorId) ? 4 : 6;
+    let code = randomString({length: otpLength, type: 'numeric'});
     let otpCodes_0 = record.otpCodes || [];
     let otpCodes = [...otpCodes_0, {code, createdAtms: Date.now()}];
     // remove otp codes that are too old
@@ -115,19 +108,26 @@ export async function signup(req: Request, res: Response, next: NextFunction) {
     await pollAgentModel.updateOne(filter, {$set: body});
     debug(`code: ${code}`);
 
-    // Send OTP: There are two ways to send an OTP after generation. Agents in the highest tiers (country/region) are
-    // typically added by staff of Election Audits, and supervisorId field is not set. Send OTP by email. Otherwise, 
-    // OTP would be delivered to the supervisor, to be forwarded to the agent signing up
-    if (record.supervisorId) { // a subAgent
-        await signupSubAgent(record, code);
-    } else { // a supervisor/ regional/ country coordinator
+    // An agent can be both a supervisor and a sub agent if in middle of hierarchy
+    if (record.supervisorId) await signupSubAgent(record, code); // subagent
+    // check if supervisor and signup as supervisor
+    let electoralLevels = getElectoralLevels();
+    let ind = electoralLevels.findIndex((v)=> v== record.electoralLevel );
+    if (ind < electoralLevels.length-1) { // this agent is also a supervisor
+        let agent = {id: record._id};
+        await signupSupervisor(agent);
+    }
+
+    // send OTP by email or phone
+    if (email) {
         let emailInput = {
             recipient: email,
             subject: 'Election Audits',
             text: i18next.t("otp_message") + code, // plain text body
         };
-        let agent = {id: record._id};
-        await signupSupervisor(emailInput, agent);
+        await sendEmail(emailInput);
+    } else {
+        // TODO: send push notification to supervisor
     }
 }
 
@@ -140,8 +140,8 @@ export async function signup(req: Request, res: Response, next: NextFunction) {
 async function signupSubAgent(myData: {[key: string]: any}, code: string) {
     // also write the code in the supervisors table so can be accessed
     let filter = {agentId: myData.supervisorId};
-    let field = `subAgents.${myData.phone}`;
-    let update = {[field]: code};
+    let field = `subAgents.${myData._id.toString()}`;
+    let update = {[field]: true};
     await supervisorModel.updateOne(filter, {$set: update});
     // TODO: send a push notification to the supervisor that a subAgent is attempting to signup
 
@@ -154,10 +154,19 @@ async function signupSubAgent(myData: {[key: string]: any}, code: string) {
  * @param agent 
  * @returns 
  */
-async function signupSupervisor(emailInput: EmailInput, agent: {[key: string]: any}) {
+async function signupSupervisor(agent: {[key: string]: any}) {
     // For a supervisor, create a record in the Supervisors collection
     let updateFields = {subAgents: {}};
     await supervisorModel.updateOne({agentId: agent.id}, {$set: updateFields}, {upsert: true});
+
+}
+
+/**
+ * 
+ * @param emailInput 
+ * @returns 
+ */
+async function sendEmail(emailInput: EmailInput) {
     // only send email when in cloud build
     if (BUILD == BUILD_TYPES.local) return;
     // send the OTP by email to the supervisor
@@ -187,7 +196,7 @@ async function signupSupervisor(emailInput: EmailInput, agent: {[key: string]: a
 export async function signupConfirm(req: Request, res: Response, next: NextFunction) {
     // validate inputs with joi
     let body = req.body;
-    let { error } = await signupConfirmSchema.validateAsync(body);
+    let { error } = signupConfirmSchema.validate(body);
     if (error) {
         debug('schema error: ', error);
         return Promise.reject({errMsg: i18next.t("request_body_error")}); // todo printf
@@ -227,11 +236,21 @@ export async function signupConfirm(req: Request, res: Response, next: NextFunct
     }
 
     // At this point, code is equal, and within verification window. Update record
-    let updateFields = email ? { emailConfirmed: true } : { phoneConfirmed: true };
+    let updateFields: {[key: string]: any} = email ? { emailConfirmed: true } : { phoneConfirmed: true };
+    updateFields.fbToken = body.fbToken; // also set firebase token
     await pollAgentModel.updateOne(filter, {$set: updateFields});
     // set cookie for authenticating future requests
     if (email) req.session.email = email;
     if (phone) req.session.phone = phone;
+
+    // data to send to client : {[key: string]: any}
+    let retData = {
+        email,
+        phone,
+        surname: record?.surname,
+        otherNames: record?.otherNames
+    };
+    return retData;
 }
 
 
@@ -244,7 +263,7 @@ export async function signupConfirm(req: Request, res: Response, next: NextFunct
 export async function login(req: Request, res: Response, next: NextFunction) {
     // validate inputs with joi
     let body = req.body;
-    let { error } = await loginSchema.validateAsync(body);
+    let { error } = loginSchema.validate(body);
     if (error) {
         debug('schema error: ', error);
         return Promise.reject({errMsg: i18next.t("request_body_error")});
@@ -273,7 +292,8 @@ export async function login(req: Request, res: Response, next: NextFunction) {
     }
 
     // Account exists and password correct. Create OTP to be sent by email or to supervisor
-    let code = (record.supervisorId) ? randomString({length: 4, type: 'numeric'}) : randomString({length: 6});
+    let otpLength = (record.supervisorId) ? 4 : 6;
+    let code = randomString({length: otpLength, type: 'numeric'});
     let otpCodes_0 = record.otpCodes || [];
     let otpCodes = [...otpCodes_0, {code, createdAtms: Date.now()}];
     // remove otp codes that are too old
@@ -285,8 +305,8 @@ export async function login(req: Request, res: Response, next: NextFunction) {
     await pollAgentModel.updateOne(filter, {$set: {otpCodes}});
     debug(`code: ${code}`);
 
-    // if supervisor, will send OTP by email, otherwise for subAgent, the OTP would be send to the supervisor's app to
-    // be forwarded to the subAgent by text
+    // if logging in with email, will send OTP by email, otherwise for subAgent, the OTP would be send to the 
+    // supervisor's app to be forwarded to the subAgent by text
     if (record.supervisorId) { // a subAgent
         await otpSubAgent(record, code);
     } else { // a supervisor/ regional/ country coordinator
@@ -352,7 +372,7 @@ async function otpSupervisor(emailInput: EmailInput) {
 export async function loginConfirm(req: Request, res: Response, next: NextFunction) {
     let body = req.body;
     // validate inputs with joi
-    let { error } = await loginConfirmSchema.validateAsync(body);
+    let { error } = loginConfirmSchema.validate(body);
     if (error) {
         debug('schema error: ', error);
         return Promise.reject({errMsg: i18next.t("request_body_error")});
@@ -390,7 +410,10 @@ export async function loginConfirm(req: Request, res: Response, next: NextFuncti
         debug(`code has expired: deltaT is ${deltaT/1000} seconds`);
         return Promise.reject({errMsg: i18next.t("expired_code")});
     }
-    
+
+    // update fbToken
+    await pollAgentModel.updateOne(filter, {$set: {fbToken: body.fbToken}});
+
     // set cookie for authenticating future requests
     if (email) req.session.email = email;
     if (phone) req.session.phone = phone;
@@ -414,7 +437,7 @@ export async function loginConfirm(req: Request, res: Response, next: NextFuncti
 export async function resendCode(req: Request, res: Response, next: NextFunction) {
     let body = req.body;
     // validate input
-    let { error } = await resendCodeSchema.validateAsync(body);
+    let { error } = resendCodeSchema.validate(body);
     if (error) {
         debug('schema error: ', error);
         return Promise.reject({errMsg: i18next.t("request_body_error")});
@@ -449,7 +472,8 @@ export async function resendCode(req: Request, res: Response, next: NextFunction
     }
 
     // Create and save OTP
-    let code = (record.supervisorId) ? randomString({length: 4, type: 'numeric'}) : randomString({length: 6});
+    let otpLength = (record.supervisorId) ? 4 : 6;
+    let code = randomString({length: otpLength, type: 'numeric'});
     //
     let otpCodes = [...otpCodes_0, {code, createdAtms: Date.now()}];
     // remove otp codes that are too old
@@ -485,7 +509,7 @@ export async function resendCode(req: Request, res: Response, next: NextFunction
 export async function passwordReset(req: Request, res: Response, next: NextFunction) {
     let body = req.body;
     // validate input with Joi
-    let { error } = await passwordResetSchema.validateAsync(body);
+    let { error } = passwordResetSchema.validate(body);
     if (error) {
         debug('schema error: ', error);
         return Promise.reject({errMsg: i18next.t("request_body_error")});
@@ -509,7 +533,8 @@ export async function passwordReset(req: Request, res: Response, next: NextFunct
     }
 
     // create an OTP code and save
-    let code = (record.supervisorId) ? randomString({length: 4, type: 'numeric'}) : randomString({length: 6});
+    let otpLength = (record.supervisorId) ? 4 : 6;
+    let code = randomString({length: otpLength, type: 'numeric'});
     let otpCodes_0 = record.otpCodes || [];
     let otpCodes = [...otpCodes_0, {code, createdAtms: Date.now()}];
     debug(`code: ${code}`);
@@ -545,7 +570,7 @@ export async function passwordReset(req: Request, res: Response, next: NextFunct
 export async function passwordResetConfirm(req: Request, res: Response, next: NextFunction) {
     let body = req.body;
     // validate input with Joi
-    let { error } = await passwordResetConfirmSchema.validateAsync(body);
+    let { error } = passwordResetConfirmSchema.validate(body);
     if (error) {
         debug('schema error: ', error);
         return Promise.reject({errMsg: i18next.t("request_body_error")});
@@ -599,7 +624,7 @@ export async function passwordResetConfirm(req: Request, res: Response, next: Ne
 export async function updateProfile(req: Request, res: Response, next: NextFunction) {
     let body = req.body;
     // validate input
-    let { error } = await updateProfileSchema.validateAsync(body);
+    let { error } = updateProfileSchema.validate(body);
     if (error) {
         debug('schema error: ', error);
         return Promise.reject({errMsg: i18next.t("request_body_error")});
@@ -633,3 +658,15 @@ export async function updateProfile(req: Request, res: Response, next: NextFunct
     return retData;
 }
 
+
+/**
+ * Deactivate account
+ * @param req 
+ * @param res 
+ * @param next 
+ */
+export async function deactivate(req: Request, res: Response, next: NextFunction) {
+    let filter = {_id: req.user?._id};
+    await pollAgentModel.deleteOne(filter);
+    // move sub agents, notify super and sub agents
+}

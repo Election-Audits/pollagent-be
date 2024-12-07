@@ -3,7 +3,7 @@
 import * as mongoose from "mongoose";
 const debug = require('debug')('ea:elect-area-model');
 debug.log = console.log.bind(console);
-import { databaseConns, checkDatabaseConnected } from "../mongoose";
+import { databaseConns, checkDatabaseConnected, auditDbName } from "../mongoose";
 import { DBS } from "../../utils/env"
 import paginate from "mongoose-paginate-v2";
 
@@ -14,9 +14,9 @@ check db connection, then create model using db connection
 async function setup() {
     await checkDatabaseConnected();
     let dbs = DBS?.split(",") || [];
-    // create models for each database (by country/entity)
+    // create model for country (thus skip eaudit*)
     for (let db of dbs) {
-        if (db == 'eaudit') continue;
+        if (db == auditDbName) continue; // eaudit or eaudit-test
         // setup electoralAreaModel
         electoralAreaModel = databaseConns[db].model
         <ElectoralAreaDocument, mongoose.PaginateModel<ElectoralAreaDocument> >
@@ -51,7 +51,9 @@ const electoralAreaSchema = new Schema({
         lon: SchemaTypes.Number,
         lat: SchemaTypes.Number
     },
-    locationDetails: SchemaTypes.String
+    locationDetails: SchemaTypes.String,
+    partyAgents: new Schema({}, {strict: false}), // agents of political parties
+    candidateAgents: new Schema({}, {strict: false}) // agents of independent candidates
 });
 
 // create a text index to enable search by text

@@ -26,17 +26,6 @@ router.use(cookieParser(cookieSecret));
 router.use((req,res,next)=> pollAgentSession(req,res,next));
 
 
-/*
-Obtain secrets (cookie), set up cookie parser
-*/
-async function setup() {
-    await checkSecretsReturned();
-    // set cookie secret for cloud build. Will be used by cookieParser
-    cookieSecret = (BUILD == BUILD_TYPES.local) ? cookieSecretEnv+'' : secrets.COOKIE_SECRET;
-}
-
-setup();
-
 
 
 /*
@@ -72,10 +61,10 @@ passport.authenticate('supervisor-cookie', {session: false}),
 /*
 GET a specific sub agent
 */
-router.get('/subagent/:phone',
+router.get('/subagent/:id',
 passport.authenticate('supervisor-cookie', {session: false}),
 (req,res,next)=>{
-    debug('received request to /subagent/:phone...');
+    debug('received request to /subagent/:id...');
     getOneSubAgent(req,res,next)
     .then((data)=>{
         return res.status(200).send(data);
@@ -87,10 +76,10 @@ passport.authenticate('supervisor-cookie', {session: false}),
 /*
 GET an OTP for a sub agent
 */
-router.get('/subagent/:phone/code',
+router.get('/subagent/:id/code',
 passport.authenticate('supervisor-cookie', {session: false}),
 (req,res,next)=>{
-    debug('received request to /subagent/:phone/code...');
+    debug('received request to /subagent/:id/code...');
     getSubAgentCode(req,res,next)
     .then((data)=>{
         return res.status(200).send(data);

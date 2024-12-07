@@ -10,8 +10,8 @@ import passport from "passport";
 import i18next from "i18next";
 import cookieParser from "cookie-parser";
 import { pollAgentSession } from "../utils/session";
-import { signup, signupConfirm, login, loginConfirm, passwordReset, passwordResetConfirm, resendCode, updateProfile } 
-from "../controllers/login";
+import { signup, signupConfirm, login, loginConfirm, passwordReset, passwordResetConfirm, resendCode, updateProfile,
+deactivate } from "../controllers/login";
 
 
 
@@ -28,14 +28,14 @@ router.use(cookieParser(cookieSecret));
 
 /*
 Obtain secrets (cookie), set up cookie parser
-*/
+*
 async function setup() {
     await checkSecretsReturned();
     // set cookie secret for cloud build. Will be used by cookieParser
     cookieSecret = (BUILD == BUILD_TYPES.local) ? cookieSecretEnv+'' : secrets.COOKIE_SECRET;
 }
-
 setup();
+*/
 
 
 /*
@@ -155,3 +155,19 @@ passport.authenticate('pollagent-cookie', {session: false}), // NB: needs authen
     .catch((err)=> endpointError(err,req,res));
 });
 
+
+/*
+Deactivate account
+*/
+router.delete('/account/deactivate',
+(req,res,next)=> pollAgentSession(req,res,next),
+passport.authenticate('pollagent-cookie', {session: false}),
+(req,res,next)=>{
+    debug('received request to /account/deactivate...');
+    deactivate(req,res,next)
+    .then(()=>{
+        return res.status(200).end();
+    })
+    .catch((err)=> endpointError(err,req,res));
+}
+);

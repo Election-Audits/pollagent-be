@@ -3,10 +3,11 @@
 import * as mongoose from "mongoose";
 const debug = require('debug')('ea:pollagent-model');
 debug.log = console.log.bind(console);
-import { databaseConns, checkDatabaseConnected } from "../mongoose";
+import { databaseConns, checkDatabaseConnected, auditDbName } from "../mongoose";
 import { DBS } from "../../utils/env"
 import paginate from "mongoose-paginate-v2";
 
+//mongoose.set('debug', true);
 
 /*
 check db connection, then create model using db connection
@@ -14,10 +15,14 @@ check db connection, then create model using db connection
 async function setup() {
     await checkDatabaseConnected();
     let dbs = DBS?.split(",") || [];
-    //
-    // now setup eaudit database for Poll Agents
-    pollAgentModel = databaseConns.eaudit.model<PollAgentDocument, mongoose.PaginateModel<PollAgentDocument> >
-    ("PollAgent", pollAgentSchema, "PollAgents");
+    // set up poll agent on audit db only
+    for (let db of dbs) {
+        if (db != auditDbName) continue;
+        // audit db
+        // setup PollAgents model on eaudit* database
+        pollAgentModel = databaseConns[db].model<PollAgentDocument, mongoose.PaginateModel<PollAgentDocument> >
+        ("PollAgent", pollAgentSchema, "PollAgents");
+    }
 }
 setup();
 
@@ -36,7 +41,7 @@ const pollAgentSchema = new Schema({
         //unique: true,
         index: {
             unique: true,
-            partialFilterExpression: { email: { $type: 'string' } },
+            partialFilterExpression: { email: { $type: 'string', $ne: '' } },
         },
         sparse: true
     },
@@ -49,19 +54,26 @@ const pollAgentSchema = new Schema({
     phoneConfirmed: SchemaTypes.Boolean,
     //
     supervisorId: SchemaTypes.String, // id of supervisor
-    subAgentsRef: SchemaTypes.String, // reference to subAgents/supervisees document
+    // NB: subAgentsRef (not needed since can query Supervisors collection by agentId)
+    // subAgentsRef: SchemaTypes.String, // reference to subAgents/supervisees document. 
     //
     electoralLevel: SchemaTypes.String,
     electoralAreaId: SchemaTypes.String,
     electoralAreaName: SchemaTypes.String,
     //
     partyId: SchemaTypes.String,
-    country: SchemaTypes.String
-});
+    candidateId: SchemaTypes.String, // for independent candidates without parties
+    country: SchemaTypes.String,
+    // pollStations keyed by pollStation id and with value {name, id}
+    pollStations: new Schema({}, {strict: false})
+},
+{autoIndex: true});
 
-// pollAgentSchema.index({email: 1}, 
-//     {unique: true, partialFilterExpression: {email: {$exists: true, $gt: ''}} }
-// );
+// NB: email index created above
+
+pollAgentSchema.index({phone: 1}, 
+    {unique: true, partialFilterExpression: {phone: {$exists: true, $ne: ''}} }
+);
 
 ////////////////////
 interface PollAgentData {
@@ -83,11 +95,12 @@ interface PollAgentData {
     subAgentsRef: string, // reference to subAgents/supervisees document
     //
     electoralLevel: string,
-    electoralAreaId: string, // TODO: allow multiple?
+    electoralAreaId: string, // NB: only lowest level agent can have multiple in pollStations field
     electoralAreaName: string,
     //
     partyId: string,
-    country: string
+    country: string,
+    pollStations: object
 };
 
 
@@ -101,4 +114,12 @@ pollAgentSchema.plugin(paginate); // use paginate plugin
 // init pollAgentModel to set right type. Will be updated upon db connections in setup
 export let pollAgentModel = mongoose.model<PollAgentDocument, mongoose.PaginateModel<PollAgentDocument> >
 ("PollAgent", pollAgentSchema, "PollAgents");
+
+pollAgentModel.on('index', function(err) {
+    if (err) {
+        console.error('PollAgents index error: %s', err);
+    } else {
+        console.info('PollAgents indexing complete');
+    }
+});
 
