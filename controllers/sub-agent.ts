@@ -123,6 +123,7 @@ export async function submitResultsSummary(req: Request, res: Response, next: Ne
     for (let result of body.results) {
         let key = result.partyId ? `parties.${result.partyId}` : result.candidateId ? 
         `candidates.${result.candidateId}` : `unknowns${result.name}`;
+        result.numVotes = parseInt(result.numVotes);
         //
         resultUpdates[key] = result;
     }

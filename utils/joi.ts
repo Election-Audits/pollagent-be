@@ -121,14 +121,14 @@ export const postResultSummarySchema = Joi.object({
         Joi.object({
             partyId: objectIdStr,
             candidateId: objectIdStr,
-            numVotes: Joi.number(),
+            numVotes: Joi.number().allow(''),
             name: Joi.string().max(50) // optional. for results of unknown candidate
         })
     ),
     summary: Joi.object({
-        numRegisteredVoters: Joi.number(),
-        totalNumVotes: Joi.number(),
-        numRejectedVotes: Joi.number()
+        numRegisteredVoters: Joi.number().allow(''),
+        totalNumVotes: Joi.number().allow(''),
+        numRejectedVotes: Joi.number().allow('')
     })
 });
 
